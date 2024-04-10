@@ -1,0 +1,35 @@
+{
+	"fileTypes": [
+		"py"
+	],
+	"injectionSelector": "L:source",
+	"scopeName": "kv-string.injection",
+	"patterns": [
+		{
+			"contentName": "meta.embedded.source.kv",
+			"begin": "(#\\<KvLang\\>(.*))",
+			"end": "(#\\</KvLang\\>(.*))",
+			"beginCaptures": {
+				"1": {
+					"name": "keyword.other.unit"
+				},
+				"2": {
+					"name": "comment.line.number-sign.kv"
+				}
+			},
+			"endCaptures": {
+				"1": {
+					"name": "keyword.other.unit"
+				},
+				"2": {
+					"name": "comment.line.number-sign.kv"
+				}
+			},
+			"patterns": [
+				{
+					"include": "source.kv"
+				}
+			]
+		}
+	]
+}
