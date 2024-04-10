@@ -1,0 +1,81 @@
+{
+  "name": "kivy-kv-helper",
+  "displayName": "Kivy Kv Helper",
+  "description": "a kivy-kv keywords and attributes helper",
+  "version": "0.0.1",
+  "icon": "logo.png",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:kivy-kv-helper.start",
+    "onLanguage:python",
+    "onLanguage:kv",
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kivy-kv-helper.start",
+        "title": "Kivy-Kv Extention"
+      }
+    ],
+    "languages": [
+      {
+        "id": "kv",
+        "aliases": [
+          "KvLang",
+          "kv"
+        ],
+        "extensions": [
+          ".kv"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kv",
+        "scopeName": "source.kv",
+        "path": "./syntaxes/kv.tmLanguage.json"
+      },
+      {
+        "injectTo": [
+          "source.python"
+        ],
+        "scopeName": "kv-string.injection",
+        "path": "./syntaxes/embedded-grammars-kv.json",
+        "embeddedLanguages": {
+          "meta.embedded.source.kv": "kv"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.6",
+    "@types/node": "18.x",
+    "@types/vscode": "^1.88.0",
+    "@typescript-eslint/eslint-plugin": "^7.4.0",
+    "@typescript-eslint/parser": "^7.4.0",
+    "@vscode/test-cli": "^0.0.8",
+    "@vscode/test-electron": "^2.3.9",
+    "antlr4ts": "^0.5.0-alpha.4",
+    "eslint": "^8.57.0",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "antlr4": "^4.13.1-patch-1"
+  }
+}
