@@ -1,9 +1,14 @@
 # Kivy .kv Language Helper
 
-![Extension Screenshot](images/kv_helper_explain.gif)
 
 ## Description
 The Kivy .kv Language Helper is a Visual Studio Code extension designed to enhance your development experience when working with Kivy's .kv language files. It provides intelligent suggestions, syntax highlighting, and more, making it easier to write and manage your Kivy UI layouts.
+
+## New Update 0.0.4
+
+### Exciting New Features Update!
+
+Our latest extension update brings several powerful features to streamline your workflow. Now, with improved suggestions, you can effortlessly retrieve suggested attributes for the current object, making coding faster and more intuitive. Additionally, the extension provides suggestions for paths to folders or files, simplifying navigation within your project. The highlight of this update is the integration of a vast suggestions database in JSON format, ensuring comprehensive and accurate suggestions tailored to your development needs. Check out this [video](https://youtu.be/wlK9a249O2U) to see these features in action and experience the magic of enhanced coding productivity.
 
 ## Features
 - **Syntax Highlighting:** Easily distinguish between different elements, properties, and values in your .kv files with syntax highlighting.
@@ -20,7 +25,7 @@ The Kivy .kv Language Helper is a Visual Studio Code extension designed to enhan
 2. Enjoy automatic syntax highlighting and intelligent code suggestions while you write and edit your Kivy UI layouts.
 
 ## Screenshots
-![Syntax Highlighting](images/kv_helper_explain.gif)
+![Extension Screenshot](images/kv_helper_explain.gif)
 
 ## Feedback and Support
 If you encounter any issues or have suggestions for improvement, please [contact me](nsitiliem@gmail.com). Your feedback is valuable to me and helps me improve the extension for everyone.
