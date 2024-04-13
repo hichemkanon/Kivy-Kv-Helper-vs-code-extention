@@ -23,8 +23,9 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.showErrorMessage = exports.showMessage = void 0;
+exports.CustomPanel = exports.showErrorMessage = exports.showMessage = void 0;
 const vscode = __importStar(require("vscode"));
+const panel = undefined;
 function showMessage(message) {
     vscode.window.showInformationMessage(message);
 }
@@ -33,4 +34,38 @@ function showErrorMessage(message) {
     vscode.window.showErrorMessage(message);
 }
 exports.showErrorMessage = showErrorMessage;
+class CustomPanel {
+    static currentPanel;
+    static viewType = 'customPanel';
+    _panel;
+    _extensionUri;
+    constructor(panel, extensionUri) {
+        this._panel = panel;
+        this._extensionUri = extensionUri;
+        // Set the webview's HTML content
+        this._panel.webview.html = this._getHtmlForWebview();
+    }
+    static createOrShow(extensionUri) {
+        const column = vscode.ViewColumn.Two;
+        // If panel already exists, show it; otherwise, create a new panel
+        if (CustomPanel.currentPanel) {
+            CustomPanel.currentPanel._panel.reveal(column);
+        }
+        else {
+            const panel = vscode.window.createWebviewPanel('myPanel', // Panel ID (unique)
+            'My Custom Panel', // Panel title
+            vscode.ViewColumn.Beside, // Reveal in active column (keeps editor focus)
+            {
+                enableScripts: true, // Allow scripts in the panel
+                retainContextWhenHidden: true,
+            });
+            CustomPanel.currentPanel = new CustomPanel(panel, extensionUri);
+        }
+    }
+    _getHtmlForWebview() {
+        // Load your custom HTML content here
+        return `<html><body><h1>Hello, World!</h1></body></html>`;
+    }
+}
+exports.CustomPanel = CustomPanel;
 //# sourceMappingURL=windowutil.js.map

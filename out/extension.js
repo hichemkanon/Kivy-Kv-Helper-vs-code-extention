@@ -27,13 +27,10 @@ exports.deactivate = exports.activate = void 0;
 const vscode = __importStar(require("vscode"));
 const textutils_1 = require("./textutils");
 const textutils_2 = require("./textutils");
+const textutils_3 = require("./textutils");
 function activate(context) {
-    let disposable = vscode.commands.registerCommand('kivy-kv-helper.helloWorld', () => {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor) {
-            vscode.window.showErrorMessage('No active editor!');
-            return;
-        }
+    const disposable = vscode.commands.registerTextEditorCommand('extension.handleCompletionInsertion', (textEditor, edit, completionItem) => {
+        (0, textutils_3.handle_insertion_text)(completionItem);
     });
     const completionProvider = vscode.languages.registerCompletionItemProvider({ scheme: 'file' }, {
         provideCompletionItems(document, position) {
@@ -53,27 +50,34 @@ function activate(context) {
                 }
             }
             return [];
+        },
+        resolveCompletionItem(item, token) {
+            item.command = {
+                command: 'extension.handleCompletionInsertion',
+                title: 'Handle Completion Insertion',
+                arguments: [item],
+            };
+            return item;
         }
     });
-    function activate(context) {
-        // Define the language configuration to enable quick suggestions for strings
-        const languageConfiguration = {
-            wordPattern: /(-?\d*\.\d\w*)|([^\`\~\!\@\#\$\%\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\?\s]+)/g,
-            autoClosingPairs: [
-                { open: '"', close: '"' },
-                { open: "b", close: "b" }
-            ]
-        };
-        // Set the language configuration for the desired language (e.g., Python)
-        vscode.languages.setLanguageConfiguration('python', languageConfiguration);
-    }
+    context.subscriptions.push(vscode.languages.registerHoverProvider({ scheme: 'file' }, {
+        provideHover(document, position, token) {
+            // Logic to provide hover information
+            const hoveredWord = document.getText(document.getWordRangeAtPosition(position));
+            const hover = (0, textutils_3.get_hover_for)(hoveredWord);
+            if (hover.trim() == "") {
+                return null;
+            }
+            return new vscode.Hover(hover);
+        }
+    }));
     const config = vscode.workspace.getConfiguration();
     config.update('editor.quickSuggestions', {
         other: true,
         comments: true,
         strings: true
     }, vscode.ConfigurationTarget.Global);
-    (0, textutils_1.init_textutils)();
+    (0, textutils_1.init_textutils)(context);
     context.subscriptions.push(completionProvider);
     context.subscriptions.push(disposable);
 }

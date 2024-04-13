@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.listFilesInPath = void 0;
+exports.saveStringToFile = exports.listFilesInPath = void 0;
 const fs = __importStar(require("fs"));
 function listFilesInPath(folderPath) {
     try {
@@ -35,4 +35,15 @@ function listFilesInPath(folderPath) {
     }
 }
 exports.listFilesInPath = listFilesInPath;
+function saveStringToFile(content, filePath) {
+    fs.writeFile(filePath, content, (err) => {
+        if (err) {
+            console.error('Error writing to file:', err);
+        }
+        else {
+            console.log('String saved to file successfully.');
+        }
+    });
+}
+exports.saveStringToFile = saveStringToFile;
 //# sourceMappingURL=fileutils.js.map
