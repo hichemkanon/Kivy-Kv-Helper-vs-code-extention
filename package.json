@@ -2,7 +2,7 @@
 	"name": "kivy-kv-helper",
 	"displayName": "Kivy Kv Helper",
 	"description": "a kivy-kv keywords and attributes helper",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"publisher": "HichemKanon",
 	"icon": "logo.png",
 	"engines": {
@@ -14,15 +14,13 @@
 	},
 	"files": [
 		"data/in_strings.json",
-		"data/all_kivy.json"
+		"data/all_kivy.json",
+		"data/imports.txt"
 	],
 	"categories": [
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:kivy-kv-helper.start",
-		"onLanguage:python",
-		"onLanguage:kv",
 		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
@@ -31,6 +29,32 @@
 			{
 				"command": "kivy-kv-helper.start",
 				"title": "Kivy-Kv Extention"
+			},
+			{
+				"command": "extension.runKvFile",
+				"title": "Run KV File",
+				"icon": {
+					"dark": "./images/play_yellow.png",
+					"light": "./images/play_black.png"
+				}
+			},
+			{
+				"command": "extension.displaySuggestions",
+				"title": "Suggestions"
+			}
+		],
+		"keybindings": [
+			{
+				"command": "extension.runKvFile",
+				"key": "F5",
+				"mac": "Cmd+F5",
+				"when": "resourceExtname == '.kv'"
+			},
+			{
+				"command": "extension.displaySuggestions",
+				"key": "ctrl+`",
+				"mac": "cmd+`",
+				"when": "resourceExtname == '.kv'"
 			}
 		],
 		"languages": [
@@ -43,7 +67,11 @@
 				"extensions": [
 					".kv"
 				],
-				"configuration": "./language-configuration.json"
+				"configuration": "./language-configuration.json",
+				"icon": {
+					"dark": "./images/kv_dark.png",
+					"light": "./images/kv_light.png"
+				}
 			}
 		],
 		"grammars": [
@@ -62,7 +90,16 @@
 					"meta.embedded.source.kv": "kv"
 				}
 			}
-		]
+		],
+		"menus": {
+			"editor/title": [
+				{
+					"command": "extension.runKvFile",
+					"when": "resourceExtname == .kv",
+					"group": "navigation"
+				}
+			]
+		}
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
