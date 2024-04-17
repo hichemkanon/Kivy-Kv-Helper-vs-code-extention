@@ -9,6 +9,7 @@ The Kivy .kv Language Helper is a Visual Studio Code extension designed to enhan
 - added in this version a simple button run `<img src="images/play_yellow.png" alt="Extension Screenshot" width="10"/>` in the .kv files, to show your current work directly.
 - or by pressing **`f5 `**button it will preview the current file.
 - if you are inside any Widget, and you click on **ctrl+`** then it will display all attributes of that Widget.
+- video explain the new features [Youtube Video](https://www.youtube.com/watch?v=eQ0yx2RZMjM)
 
 ## New Update 0.0.4
 

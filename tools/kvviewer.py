@@ -3,11 +3,21 @@ from checkpackage import is_package_installed, install_package
 
 if not is_package_installed("kivy"):
         print("kivy not found, starts installing...")
-        install_package("kivy")\
+        install_package("kivy")
+        
+        if is_package_installed("kivy"):
+            print("kivy installed with success !")
+        else:
+            print("failed installing kivy !!")
             
 if not is_package_installed("watchdog"):
         print("watchdog not found, starts installing...")
         install_package("watchdog")
+        
+        if is_package_installed("watchdog"):
+            print("watchdog installed with success !")
+        else:
+            print("failed installing watchdog !!")
 
 
 from sys import argv

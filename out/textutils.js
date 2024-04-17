@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.get_word_before_parenths_py = exports.handle_insertion_text = exports.insert_text_in = exports.current_Prosition = exports.insert_text = exports.move_cursor_forward = exports.move_cursor_back = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.searchKivyKeywords = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.searchKvKeywords = exports.get_cursor_start_end_offsets = exports.get_cursor_index = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
+exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_current_line_tab_number = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.get_word_before_parenths_py = exports.handle_insertion_text = exports.insert_text_in = exports.current_Prosition = exports.insert_text = exports.move_cursor_next_line = exports.move_cursor_forward = exports.move_cursor_back = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.searchKivyKeywords = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.searchKvKeywords = exports.get_cursor_start_end_offsets = exports.get_cursor_index = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -249,7 +249,7 @@ function searchKvKeywords() {
                     completion_item.insertText = name;
                 }
                 else {
-                    completion_item.insertText = prefix;
+                    completion_item.insertText = handle_prefix(item);
                 }
                 set_sorting_level(item, completion_item);
                 if (parent_name.trim().length > 0 && jsonData.hasOwnProperty(parent_name) && !is_parent) {
@@ -275,6 +275,25 @@ function searchKvKeywords() {
     return searchResult;
 }
 exports.searchKvKeywords = searchKvKeywords;
+function handle_prefix(item) {
+    const type = item["type"];
+    const mtype = item["mtype"];
+    const name = item["name"];
+    const prefix = item["prefix_kv"];
+    let prr = prefix;
+    const parents_list = item["parent"];
+    if (mtype === "attribute") {
+        if (!prr.trim().includes(":")) {
+            prr = prr + ":";
+        }
+        if (prr.includes("text")) {
+            if (!(prefix.trim().includes("\"") || prefix.trim().includes("'"))) {
+                prr = prr + " \"\"";
+            }
+        }
+    }
+    return prr;
+}
 function get_imports_for(searchTerm) {
     const searchResult = [];
     const content = fs.readFileSync(fileImports, "utf8");
@@ -580,6 +599,16 @@ function move_cursor_forward(how_many) {
     activeEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
 }
 exports.move_cursor_forward = move_cursor_forward;
+async function move_cursor_next_line(how_much_lines) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        return;
+    }
+    const currentPosition = editor.selection.active;
+    const lineNumber = currentPosition.line + how_much_lines;
+    await vscode.commands.executeCommand('editor.action.insertLineAfter');
+}
+exports.move_cursor_next_line = move_cursor_next_line;
 function insert_text(text) {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
@@ -618,9 +647,6 @@ function insert_text_in(text, newPosition) {
 exports.insert_text_in = insert_text_in;
 function handle_insertion_text(item) {
     const searchTerm = item.label.trim();
-    const prefix_past_item = item.insertText.trim();
-    const lineText = get_line_text();
-    const tabsCount = get_tabs_number(lineText);
     try {
         const data = fs.readFileSync(filePath, "utf8");
         const jsonData = JSON.parse(data);
@@ -630,6 +656,7 @@ function handle_insertion_text(item) {
                 const type = js_item["type"];
                 const mtype = js_item["mtype"];
                 let name = js_item["name"];
+                const prefix = js_item["prefix_kv"];
                 if (name === searchTerm.trim()) {
                     if (inside_brackets()) {
                         // return;
@@ -638,14 +665,11 @@ function handle_insertion_text(item) {
                     if (fileExtension === "kv" && mtype === "function") {
                         return;
                     }
-                    if (type === "WidgetMetaclass" || is_parent_line(prefix_past_item)) {
-                        const previous_tabs = get_previous_line_tab_number();
-                        const default_tabs = get_default_tabs_number();
-                        const newPos = new vscode.Position(current_Prosition().line + 1, 0);
-                        insert_text("\n" + get_tabs_string(default_tabs + previous_tabs));
+                    if (type === "WidgetMetaclass" || types.special_class.includes(name)) {
+                        move_cursor_next_line(1);
                     }
-                    if (types.strings.includes(type) || types.lists.includes(type) ||
-                        func || types.dicts_and_set.includes(type) || types.parenths.includes(type)) {
+                    if (prefix.trim().endsWith(")") || prefix.trim().endsWith("\"") || prefix.trim().endsWith("'") ||
+                        prefix.trim().endsWith("}") || prefix.trim().endsWith("]")) {
                         move_cursor_back(1);
                     }
                 }
@@ -858,6 +882,7 @@ exports.get_parent_of_child = get_parent_of_child;
 function get_default_tabs_number() {
     const text = get_text().trim();
     const lines = text.split("\n");
+    let tabs_numer = 0;
     if (lines.length > 0) {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -872,15 +897,10 @@ function get_default_tabs_number() {
                 continue;
             }
             console.log("default tabs num", tabs_num, line);
-            if (i === lines.length - 1 && tabs_num === 0) {
-                return 4;
-            }
-            else {
-                return tabs_num;
-            }
+            return tabs_num;
         }
     }
-    return -1;
+    return 4;
 }
 exports.get_default_tabs_number = get_default_tabs_number;
 function get_tabs_number(line) {
@@ -921,6 +941,17 @@ function get_previous_line_tab_number() {
     return 0;
 }
 exports.get_previous_line_tab_number = get_previous_line_tab_number;
+function get_current_line_tab_number() {
+    let tabs = 0;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active text editor found.');
+        return -1;
+    }
+    const lineText = get_line_text();
+    return get_tabs_number(lineText);
+}
+exports.get_current_line_tab_number = get_current_line_tab_number;
 function get_previous_line_text() {
     let tabs = 0;
     const editor = vscode.window.activeTextEditor;
@@ -1066,6 +1097,7 @@ function kivymd_exist() {
 }
 exports.kivymd_exist = kivymd_exist;
 class types {
+    static special_class = ["Rectangle", "Color", "Ellipse"];
     static widgets = ["WidgetMetaclass"];
     static classes = ["Class", "ABCMeta", "Pattern", "Interpolation", "VariableListProperty", "NoneType"];
     static parenths = ["method_descriptor", "tuple", "function", "getset_descriptor", "ColorProperty"];

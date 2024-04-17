@@ -105,29 +105,29 @@ function getWebviewContent(colorPickerPath: string, panel: vscode.WebviewPanel):
 let previousText = "";
 export function handleTextDocumentChange(event: vscode.TextDocumentChangeEvent) {
     if (vscode.window.activeTextEditor && event.document === vscode.window.activeTextEditor.document) {
-       if (settings.auto_indent){
-        for (const change of event.contentChanges) {
-            if (change.text.includes('\n') && previousText.length < get_text().length) {
-                const previousLine = get_line_text();
-                let tabs_default = get_default_tabs_number();
-                if (tabs_default < 1){
-                    tabs_default = 4;
-                }
-                const editor = vscode.window.activeTextEditor;
-                if (!editor) {
-                    return;
-                }
-                const cursorPosition = editor.selection.active;
-                
-                if (is_parent_line(previousLine)){
+        if (settings.auto_indent) {
+            for (const change of event.contentChanges) {
+                if (change.text.includes('\n') && previousText.length < get_text().length) {
+                    const previousLine = get_line_text();
+                    let tabs_default = get_default_tabs_number();
+                    if (tabs_default < 1) {
+                        tabs_default = 4;
+                    }
+                    const editor = vscode.window.activeTextEditor;
+                    if (!editor) {
+                        return;
+                    }
+                    const cursorPosition = editor.selection.active;
 
-                    const newPos = new vscode.Position(cursorPosition.line+1, 0);
-                    insert_text_in(get_tabs_string(tabs_default), newPos);
+                    if (is_parent_line(previousLine)) {
 
+                        const newPos = new vscode.Position(cursorPosition.line + 1, 0);
+                        insert_text_in(get_tabs_string(tabs_default), newPos);
+
+                    }
                 }
             }
-          }
-       }
+        }
     }
     previousText = get_text();
 }
@@ -283,7 +283,7 @@ export function searchKvKeywords(): vscode.CompletionItem[] {
                 if (inside_brackets() || isInsideComment()) {
                     completion_item.insertText = name;
                 } else {
-                    completion_item.insertText = prefix;
+                    completion_item.insertText = handle_prefix(item);
                 }
 
                 set_sorting_level(item, completion_item);
@@ -313,6 +313,28 @@ export function searchKvKeywords(): vscode.CompletionItem[] {
     }
 
     return searchResult;
+}
+
+function handle_prefix(item:any) {
+    const type = item["type"];
+    const mtype = item["mtype"];
+    const name = item["name"];
+    const prefix = item["prefix_kv"];
+    let prr = prefix;
+    const parents_list = item["parent"];
+
+    if (mtype === "attribute"){
+        if (!prr.trim().includes(":")) {
+            prr = prr + ":";
+        }
+        if (prr.includes("text")){
+            if (!(prefix.trim().includes("\"") || prefix.trim().includes("'"))){
+                prr = prr + " \"\"";
+            }
+        }
+    }
+
+    return prr;
 }
 
 function get_imports_for(searchTerm: string) {
@@ -698,6 +720,17 @@ export function move_cursor_forward(how_many: number): void {
     activeEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
 }
 
+export async function move_cursor_next_line(how_much_lines: number) {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {return;}
+
+    const currentPosition = editor.selection.active;
+    const lineNumber = currentPosition.line + how_much_lines;
+
+    await vscode.commands.executeCommand('editor.action.insertLineAfter');
+    
+}
+
 export function insert_text(text: string) {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
@@ -716,7 +749,7 @@ export function insert_text(text: string) {
     });
 }
 
-export function current_Prosition(){
+export function current_Prosition() {
     const activeEditor = vscode.window.activeTextEditor;
     if (!activeEditor) {
         vscode.window.showErrorMessage('No active editor found.');
@@ -739,12 +772,10 @@ export function insert_text_in(text: string, newPosition: vscode.Position) {
     });
 }
 
+
 export function handle_insertion_text(item: vscode.CompletionItem) {
 
     const searchTerm = (item.label as string).trim();
-    const prefix_past_item = (item.insertText as string).trim();
-    const lineText = get_line_text();
-    const tabsCount = get_tabs_number(lineText);
 
     try {
         const data = fs.readFileSync(filePath, "utf8");
@@ -757,6 +788,7 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
                 const type = js_item["type"];
                 const mtype = js_item["mtype"];
                 let name = js_item["name"];
+                const prefix = js_item["prefix_kv"];
 
                 if (name === searchTerm.trim()) {
 
@@ -771,23 +803,14 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
                         return;
                     }
 
-                    if (type === "WidgetMetaclass" || is_parent_line(prefix_past_item)) {
-                        const previous_tabs = get_previous_line_tab_number();
-                        const default_tabs = get_default_tabs_number();
-
-                        const newPos = new vscode.Position(current_Prosition().line+1, 0);
-                        insert_text("\n"+get_tabs_string(default_tabs+previous_tabs));
+                    if (type === "WidgetMetaclass" || types.special_class.includes(name)) {
+                        move_cursor_next_line(1);
                     }
 
-
-
-                    if (types.strings.includes(type) || types.lists.includes(type) ||
-                        func || types.dicts_and_set.includes(type) || types.parenths.includes(type)) {
-                        move_cursor_back(1);
+                    if (prefix.trim().endsWith(")") || prefix.trim().endsWith("\"") || prefix.trim().endsWith("'") ||
+                        prefix.trim().endsWith("}") || prefix.trim().endsWith("]")){
+                            move_cursor_back(1);
                     }
-
-
-
 
                 }
 
@@ -797,6 +820,7 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
 
     }
 }
+
 
 function get_tabs_string(num: number) {
     let tabs = "";
@@ -1033,6 +1057,7 @@ export function get_parent_of_child(): string {
 export function get_default_tabs_number(): number {
     const text = get_text().trim();
     const lines = text.split("\n");
+    let tabs_numer = 0;
     if (lines.length > 0) {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -1043,14 +1068,10 @@ export function get_default_tabs_number(): number {
             if (line.trim().startsWith("#")) { continue; }
 
             console.log("default tabs num", tabs_num, line);
-            if (i === lines.length -1 && tabs_num === 0){
-                return 4;
-            } else {
-                return tabs_num;
-            }
+            return tabs_num;
         }
     }
-    return -1;
+    return 4;
 }
 
 export function get_tabs_number(line: string): number {
@@ -1075,17 +1096,30 @@ export function get_previous_line_tab_number(): number {
     const text = get_text();
     const lines = text.split("\n");
 
-    for (let i = lineNum-1; i >= 0; i--) {
+    for (let i = lineNum - 1; i >= 0; i--) {
         const line_loop = lines[i];
-        if (line_loop.trim().length === 0) {continue;}
-        if (line_loop.trim().startsWith("#")) {continue;}
+        if (line_loop.trim().length === 0) { continue; }
+        if (line_loop.trim().startsWith("#")) { continue; }
         const tabs = get_tabs_number(line_loop);
-        if (tabs === 0) {continue;}
+        if (tabs === 0) { continue; }
         return tabs;
     }
 
     return 0;
 }
+
+export function get_current_line_tab_number(): number {
+    let tabs = 0;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active text editor found.');
+        return -1;
+    }
+    const lineText = get_line_text();
+
+    return get_tabs_number(lineText);
+}
+
 
 export function get_previous_line_text(): string {
     let tabs = 0;
@@ -1098,10 +1132,10 @@ export function get_previous_line_text(): string {
     const text = get_text();
     const lines = text.split("\n");
 
-    for (let i = lineNum-1; i >= 0; i--) {
+    for (let i = lineNum - 1; i >= 0; i--) {
         const line_loop = lines[i];
-        if (line_loop.trim().length === 0) {continue;}
-        if (line_loop.trim().startsWith("#")) {continue;}
+        if (line_loop.trim().length === 0) { continue; }
+        if (line_loop.trim().startsWith("#")) { continue; }
         return line_loop;
     }
 
@@ -1121,8 +1155,8 @@ export function get_next_line_text(): string {
 
     for (let i = lineNum; i < lines.length; i++) {
         const line_loop = lines[i];
-        if (line_loop.trim().length === 0) {continue;}
-        if (line_loop.trim().startsWith("#")) {continue;}
+        if (line_loop.trim().length === 0) { continue; }
+        if (line_loop.trim().startsWith("#")) { continue; }
         return line_loop;
     }
 
@@ -1237,6 +1271,7 @@ export function kivymd_exist(): boolean {
 
 
 class types {
+    static readonly special_class = ["Rectangle", "Color", "Ellipse"];
     static readonly widgets = ["WidgetMetaclass"];
     static readonly classes = ["Class", "ABCMeta", "Pattern", "Interpolation", "VariableListProperty", "NoneType"]
     static readonly parenths = ["method_descriptor", "tuple", "function", "getset_descriptor", "ColorProperty"];
