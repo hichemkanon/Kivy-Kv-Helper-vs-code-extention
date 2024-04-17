@@ -2,7 +2,7 @@
 	"name": "kivy-kv-helper",
 	"displayName": "Kivy Kv Helper",
 	"description": "a kivy-kv keywords and attributes helper",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"publisher": "HichemKanon",
 	"icon": "logo.png",
 	"engines": {

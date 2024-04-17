@@ -12,6 +12,12 @@ let selected_text = "";
 let cursor_index = [-1, -1];
 let cursor_pos_in_line = [-1, -1];
 
+let kv_vars: vscode.CompletionItem[] = [];
+let py_classes: vscode.CompletionItem[] = [];
+let kv_classes: vscode.CompletionItem[] = [];
+
+
+
 const filePath = path.join(__dirname, '..', 'data', 'all_kivy.json');
 const fileImports = path.join(__dirname, '..', 'data', 'imports.txt');
 const fileValuesPath = path.join(__dirname, '..', 'data', 'in_strings.json');
@@ -130,6 +136,8 @@ export function handleTextDocumentChange(event: vscode.TextDocumentChangeEvent) 
         }
     }
     previousText = get_text();
+    init_lists();
+
 }
 
 
@@ -315,7 +323,11 @@ export function searchKvKeywords(): vscode.CompletionItem[] {
     return searchResult;
 }
 
-function handle_prefix(item:any) {
+export function get_all_sugestions() {
+    return [...searchKvKeywords(), ...py_classes, ...kv_classes, ...kv_vars];
+}
+
+function handle_prefix(item: any) {
     const type = item["type"];
     const mtype = item["mtype"];
     const name = item["name"];
@@ -323,12 +335,12 @@ function handle_prefix(item:any) {
     let prr = prefix;
     const parents_list = item["parent"];
 
-    if (mtype === "attribute"){
+    if (mtype === "attribute") {
         if (!prr.trim().includes(":")) {
             prr = prr + ":";
         }
-        if (prr.includes("text")){
-            if (!(prefix.trim().includes("\"") || prefix.trim().includes("'"))){
+        if (prr.includes("text")) {
+            if (!(prefix.trim().includes("\"") || prefix.trim().includes("'"))) {
                 prr = prr + " \"\"";
             }
         }
@@ -483,72 +495,6 @@ export function get_suggestions(): vscode.CompletionItem[] {
 
     return searchResult;
 }
-
-
-
-export function searchKivyKeywords(searchTerm: string): vscode.CompletionItem[] {
-    const searchResult: vscode.CompletionItem[] = [];
-
-    const parent = get_word_before_parenths_py().trim();
-
-    if (isInsideStringKv()) {
-        const prefix = getTextBeforeFirstQuote();
-
-        const listPaths = searchPaths(prefix);
-
-        const listValues = searchStringsValue(prefix);
-
-        return [...listPaths, ...listValues];
-    }
-
-    if (!inside_brackets() || !parent || parent.trim().length === 0) {
-        return searchResult;
-    }
-
-    if (isInsideStringPy()) {
-        const prefix = getTextBeforeFirstQuote();
-
-        const listPaths = searchPaths(prefix);
-
-        const listValues = searchStringsValue(prefix);
-
-        return [...listPaths, ...listValues];
-    }
-
-    try {
-        const data = fs.readFileSync(filePath, "utf8");
-        const jsonData: any = JSON.parse(data);
-
-
-        for (const key in jsonData) {
-            if (jsonData.hasOwnProperty(key)) {
-                const item = jsonData[key];
-                const type = item["type"];
-                const name = item["name"];
-                let prefix = item["prefix_py"];
-
-                if (isInsideComment()) {
-                    //prefix = item.prefix;
-                }
-
-                let completion_item: vscode.CompletionItem = new vscode.CompletionItem(name);
-                completion_item.detail = type;
-
-                completion_item.insertText = prefix;
-
-                if (name.startsWith(searchTerm.trim())) {
-                    searchResult.push(completion_item);
-                }
-
-            }
-        }
-    } catch (err) {
-        console.error(err);
-    }
-
-    return searchResult;
-}
-
 
 
 export function searchPaths(searchTerm: string): vscode.CompletionItem[] {
@@ -720,15 +666,55 @@ export function move_cursor_forward(how_many: number): void {
     activeEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
 }
 
+
+
+function init_lists() {
+
+
+    kv_classes = [];
+    py_classes = [];
+    kv_vars = [];
+
+
+    for (let line of get_text().split("\n")) {
+
+        const matches_kv_vars = line.match(/#\:\s*set\s*(\w+)/g);
+        const matches_kv_classes = line.match(/(?<=\<)(\s*)?\w+(?=@)/g);
+        const matches_py_classes = line.match(/(?<=\<)(\s*)?\w+(?=\>)/g);
+
+        if (matches_kv_vars) {
+            const citem: vscode.CompletionItem = new vscode.CompletionItem(matches_kv_vars[1]);
+            citem.detail = "Variable";
+            citem.insertText = matches_kv_vars[1];
+            kv_vars.push(citem);
+        }
+        if (matches_py_classes) {
+            const citem: vscode.CompletionItem = new vscode.CompletionItem(matches_py_classes[0] + ":\n");
+            citem.detail = "Py Class";
+            citem.insertText = matches_py_classes[0] + ":\n";
+            py_classes.push(citem);
+        }
+        if (matches_kv_classes) {
+            const citem: vscode.CompletionItem = new vscode.CompletionItem(matches_kv_classes[0] + ":\n");
+            citem.detail = "Kv Class";
+            citem.insertText = matches_kv_classes[0] + ":\n";
+            kv_classes.push(citem);
+        }
+
+    }
+
+}
+
+
 export async function move_cursor_next_line(how_much_lines: number) {
     const editor = vscode.window.activeTextEditor;
-    if (!editor) {return;}
+    if (!editor) { return; }
 
     const currentPosition = editor.selection.active;
     const lineNumber = currentPosition.line + how_much_lines;
 
     await vscode.commands.executeCommand('editor.action.insertLineAfter');
-    
+
 }
 
 export function insert_text(text: string) {
@@ -808,8 +794,8 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
                     }
 
                     if (prefix.trim().endsWith(")") || prefix.trim().endsWith("\"") || prefix.trim().endsWith("'") ||
-                        prefix.trim().endsWith("}") || prefix.trim().endsWith("]")){
-                            move_cursor_back(1);
+                        prefix.trim().endsWith("}") || prefix.trim().endsWith("]")) {
+                        move_cursor_back(1);
                     }
 
                 }

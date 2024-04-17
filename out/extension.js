@@ -31,17 +31,16 @@ const vscode = __importStar(require("vscode"));
 const textutils_1 = require("./textutils");
 const textutils_2 = require("./textutils");
 const textutils_3 = require("./textutils");
-const textutils_4 = require("./textutils");
 const tools = __importStar(require("./tools"));
 const path_1 = __importDefault(require("path"));
 let customProvider;
 let defaultProvider;
 function activate(context) {
     const disposable = vscode.commands.registerTextEditorCommand('extension.handleCompletionInsertion', (textEditor, edit, completionItem) => {
-        (0, textutils_3.handle_insertion_text)(completionItem);
+        (0, textutils_2.handle_insertion_text)(completionItem);
     });
     vscode.workspace.onDidChangeTextDocument((event) => {
-        (0, textutils_3.handleTextDocumentChange)(event);
+        (0, textutils_2.handleTextDocumentChange)(event);
         if (!defaultProvider) {
             set_up_suggestions(context);
         }
@@ -50,7 +49,7 @@ function activate(context) {
         provideHover(document, position, token) {
             // Logic to provide hover information
             const hoveredWord = document.getText(document.getWordRangeAtPosition(position));
-            const hover = (0, textutils_3.get_hover_for)(hoveredWord);
+            const hover = (0, textutils_2.get_hover_for)(hoveredWord);
             if (hover.trim() === "") {
                 return null;
             }
@@ -83,7 +82,7 @@ function run_kv() {
     if (tools.getPlatform() === "windows") {
         cmd = "python";
     }
-    if ((0, textutils_4.kivymd_exist)()) {
+    if ((0, textutils_3.kivymd_exist)()) {
         script = "'" + path_1.default.join(path_1.default.dirname(__dirname), "tools/kvmdviewer.py") + "'";
     }
     if (editor && editor.document.languageId === 'kv') {
@@ -103,7 +102,7 @@ function set_up_suggestions(context) {
         provideCompletionItems(document, position) {
             const fileExtension = document.fileName.split(".").pop()?.toLowerCase();
             if (fileExtension === "kv") {
-                const suggestions = (0, textutils_2.searchKvKeywords)();
+                const suggestions = (0, textutils_3.get_all_sugestions)();
                 return suggestions;
             }
             return [];
@@ -130,13 +129,13 @@ function show_up_cust_suggestions(context) {
         customProvider.dispose();
         defaultProvider = undefined;
     }
-    const sugs = (0, textutils_3.get_suggestions)();
+    const sugs = (0, textutils_2.get_suggestions)();
     // Register a new completion provider with the updated custom completion items
     customProvider = vscode.languages.registerCompletionItemProvider({ scheme: 'file' }, {
         provideCompletionItems(document, position) {
             const fileExtension = document.fileName.split(".").pop()?.toLowerCase();
             if (fileExtension === "kv") {
-                const suggestions = (0, textutils_3.get_suggestions)();
+                const suggestions = (0, textutils_2.get_suggestions)();
                 return suggestions;
             }
         },

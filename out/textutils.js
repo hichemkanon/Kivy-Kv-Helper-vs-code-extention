@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_current_line_tab_number = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.get_word_before_parenths_py = exports.handle_insertion_text = exports.insert_text_in = exports.current_Prosition = exports.insert_text = exports.move_cursor_next_line = exports.move_cursor_forward = exports.move_cursor_back = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.searchKivyKeywords = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.searchKvKeywords = exports.get_cursor_start_end_offsets = exports.get_cursor_index = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
+exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_current_line_tab_number = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.get_word_before_parenths_py = exports.handle_insertion_text = exports.insert_text_in = exports.current_Prosition = exports.insert_text = exports.move_cursor_next_line = exports.move_cursor_forward = exports.move_cursor_back = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.get_all_sugestions = exports.searchKvKeywords = exports.get_cursor_start_end_offsets = exports.get_cursor_index = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -32,6 +32,9 @@ const settings = __importStar(require("./settings"));
 let selected_text = "";
 let cursor_index = [-1, -1];
 let cursor_pos_in_line = [-1, -1];
+let kv_vars = [];
+let py_classes = [];
+let kv_classes = [];
 const filePath = path.join(__dirname, '..', 'data', 'all_kivy.json');
 const fileImports = path.join(__dirname, '..', 'data', 'imports.txt');
 const fileValuesPath = path.join(__dirname, '..', 'data', 'in_strings.json');
@@ -129,6 +132,7 @@ function handleTextDocumentChange(event) {
         }
     }
     previousText = get_text();
+    init_lists();
 }
 exports.handleTextDocumentChange = handleTextDocumentChange;
 function handleTextEditorSelectionChange(event) {
@@ -275,6 +279,10 @@ function searchKvKeywords() {
     return searchResult;
 }
 exports.searchKvKeywords = searchKvKeywords;
+function get_all_sugestions() {
+    return [...searchKvKeywords(), ...py_classes, ...kv_classes, ...kv_vars];
+}
+exports.get_all_sugestions = get_all_sugestions;
 function handle_prefix(item) {
     const type = item["type"];
     const mtype = item["mtype"];
@@ -424,51 +432,6 @@ function get_suggestions() {
     return searchResult;
 }
 exports.get_suggestions = get_suggestions;
-function searchKivyKeywords(searchTerm) {
-    const searchResult = [];
-    const parent = get_word_before_parenths_py().trim();
-    if (isInsideStringKv()) {
-        const prefix = getTextBeforeFirstQuote();
-        const listPaths = searchPaths(prefix);
-        const listValues = searchStringsValue(prefix);
-        return [...listPaths, ...listValues];
-    }
-    if (!inside_brackets() || !parent || parent.trim().length === 0) {
-        return searchResult;
-    }
-    if (isInsideStringPy()) {
-        const prefix = getTextBeforeFirstQuote();
-        const listPaths = searchPaths(prefix);
-        const listValues = searchStringsValue(prefix);
-        return [...listPaths, ...listValues];
-    }
-    try {
-        const data = fs.readFileSync(filePath, "utf8");
-        const jsonData = JSON.parse(data);
-        for (const key in jsonData) {
-            if (jsonData.hasOwnProperty(key)) {
-                const item = jsonData[key];
-                const type = item["type"];
-                const name = item["name"];
-                let prefix = item["prefix_py"];
-                if (isInsideComment()) {
-                    //prefix = item.prefix;
-                }
-                let completion_item = new vscode.CompletionItem(name);
-                completion_item.detail = type;
-                completion_item.insertText = prefix;
-                if (name.startsWith(searchTerm.trim())) {
-                    searchResult.push(completion_item);
-                }
-            }
-        }
-    }
-    catch (err) {
-        console.error(err);
-    }
-    return searchResult;
-}
-exports.searchKivyKeywords = searchKivyKeywords;
 function searchPaths(searchTerm) {
     const searchResult = [];
     try {
@@ -599,6 +562,34 @@ function move_cursor_forward(how_many) {
     activeEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
 }
 exports.move_cursor_forward = move_cursor_forward;
+function init_lists() {
+    kv_classes = [];
+    py_classes = [];
+    kv_vars = [];
+    for (let line of get_text().split("\n")) {
+        const matches_kv_vars = line.match(/#\:\s*set\s*(\w+)/g);
+        const matches_kv_classes = line.match(/(?<=\<)(\s*)?\w+(?=@)/g);
+        const matches_py_classes = line.match(/(?<=\<)(\s*)?\w+(?=\>)/g);
+        if (matches_kv_vars) {
+            const citem = new vscode.CompletionItem(matches_kv_vars[1]);
+            citem.detail = "Variable";
+            citem.insertText = matches_kv_vars[1];
+            kv_vars.push(citem);
+        }
+        if (matches_py_classes) {
+            const citem = new vscode.CompletionItem(matches_py_classes[0] + ":\n");
+            citem.detail = "Py Class";
+            citem.insertText = matches_py_classes[0] + ":\n";
+            py_classes.push(citem);
+        }
+        if (matches_kv_classes) {
+            const citem = new vscode.CompletionItem(matches_kv_classes[0] + ":\n");
+            citem.detail = "Kv Class";
+            citem.insertText = matches_kv_classes[0] + ":\n";
+            kv_classes.push(citem);
+        }
+    }
+}
 async function move_cursor_next_line(how_much_lines) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {

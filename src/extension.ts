@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import { get_selected_text, init_textutils, get_cursor_index, get_cursor_start_end_offsets } from './textutils';
-import { searchKvKeywords, searchKivyKeywords, isInsideComment, isInsideStringKv } from './textutils';
+import { searchKvKeywords, isInsideComment, isInsideStringKv } from './textutils';
 import { move_cursor_back, handle_insertion_text, get_hover_for, get_suggestions, handleTextDocumentChange } from './textutils';
-import { kivymd_exist } from './textutils';
+import { kivymd_exist, get_all_sugestions} from './textutils';
 import * as w from "./windowutil";
 import * as tools from "./tools";
 import path from 'path';
@@ -121,7 +121,7 @@ function set_up_suggestions(context: vscode.ExtensionContext) {
 
                 const fileExtension = document.fileName.split(".").pop()?.toLowerCase();
                 if (fileExtension === "kv") {
-                    const suggestions = searchKvKeywords();
+                    const suggestions = get_all_sugestions();
                     return suggestions;
                 }
 
