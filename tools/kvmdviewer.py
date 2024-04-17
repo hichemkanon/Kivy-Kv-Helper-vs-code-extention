@@ -4,7 +4,7 @@ from checkpackage import is_package_installed, install_package
 
 if not is_package_installed("kivymd"):
         print("kivy not found, starts installing...")
-        install_package("kivymd")\
+        install_package("kivymd")
             
 if not is_package_installed("watchdog"):
         print("watchdogs not found, starts installing...")
