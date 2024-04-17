@@ -101,6 +101,13 @@
 			]
 		}
 	},
+	"configuration": {
+        "typeScriptExtension.customSettings.kvAutoIndent": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable Feature 1"
+        }
+    },
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",

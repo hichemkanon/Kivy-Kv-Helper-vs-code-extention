@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.is_pip_package_installed = exports.executeCmd = void 0;
+exports.sleep = exports.getPlatform = exports.is_pip_package_installed = exports.executeCmd = void 0;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const child_process_1 = require("child_process");
@@ -55,4 +55,27 @@ function is_pip_package_installed(package_name) {
     return packagePath.includes("is installed.");
 }
 exports.is_pip_package_installed = is_pip_package_installed;
+function getPlatform() {
+    if (process.platform === "win32") {
+        return "windows";
+    }
+    else if (process.platform === "linux") {
+        return "linux";
+    }
+    else if (process.platform === "darwin") {
+        return "mac";
+    }
+    else {
+        return "Unknown";
+    }
+}
+exports.getPlatform = getPlatform;
+async function sleep(seconds) {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve();
+        }, seconds * 1000); // Convert seconds to milliseconds
+    });
+}
+exports.sleep = sleep;
 //# sourceMappingURL=tools.js.map

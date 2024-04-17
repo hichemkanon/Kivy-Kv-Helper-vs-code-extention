@@ -23,11 +23,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_previous_line_text = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.get_word_before_parenths_py = exports.handle_insertion_text = exports.insert_text = exports.move_cursor_forward = exports.move_cursor_back = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.searchKivyKeywords = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.searchKvKeywords = exports.get_cursor_start_end_offsets = exports.get_cursor_index = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
+exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.get_word_before_parenths_py = exports.handle_insertion_text = exports.insert_text_in = exports.current_Prosition = exports.insert_text = exports.move_cursor_forward = exports.move_cursor_back = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.searchKivyKeywords = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.searchKvKeywords = exports.get_cursor_start_end_offsets = exports.get_cursor_index = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const file = __importStar(require("./fileutils"));
+const settings = __importStar(require("./settings"));
 let selected_text = "";
 let cursor_index = [-1, -1];
 let cursor_pos_in_line = [-1, -1];
@@ -105,6 +106,29 @@ function getWebviewContent(colorPickerPath, panel) {
 }
 let previousText = "";
 function handleTextDocumentChange(event) {
+    if (vscode.window.activeTextEditor && event.document === vscode.window.activeTextEditor.document) {
+        if (settings.auto_indent) {
+            for (const change of event.contentChanges) {
+                if (change.text.includes('\n') && previousText.length < get_text().length) {
+                    const previousLine = get_line_text();
+                    let tabs_default = get_default_tabs_number();
+                    if (tabs_default < 1) {
+                        tabs_default = 4;
+                    }
+                    const editor = vscode.window.activeTextEditor;
+                    if (!editor) {
+                        return;
+                    }
+                    const cursorPosition = editor.selection.active;
+                    if (is_parent_line(previousLine)) {
+                        const newPos = new vscode.Position(cursorPosition.line + 1, 0);
+                        insert_text_in(get_tabs_string(tabs_default), newPos);
+                    }
+                }
+            }
+        }
+    }
+    previousText = get_text();
 }
 exports.handleTextDocumentChange = handleTextDocumentChange;
 function handleTextEditorSelectionChange(event) {
@@ -137,13 +161,6 @@ function handleTextEditorSelectionChange(event) {
         startPosition = editor.selection.start;
         endPosition = editor.selection.end;
         cursor_index = [startPosition.line * 1000 + startPosition.character, endPosition.line * 1000 + endPosition.character];
-    }
-    const line = get_line_text();
-    if (line.trim().length > 0) {
-        const indent = get_tabs_number(line);
-        const default_ind = get_default_tabs_number();
-        const previous_ind = get_previous_line_tab_number();
-        const previous_line_str = get_previous_line_text();
     }
 }
 function get_selected_text() {
@@ -578,6 +595,27 @@ function insert_text(text) {
     });
 }
 exports.insert_text = insert_text;
+function current_Prosition() {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        vscode.window.showErrorMessage('No active editor found.');
+        return new vscode.Position(0, 0);
+    }
+    return activeEditor.selection.active;
+}
+exports.current_Prosition = current_Prosition;
+function insert_text_in(text, newPosition) {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        vscode.window.showErrorMessage('No active editor found.');
+        return;
+    }
+    const edit = vscode.TextEdit.insert(newPosition, text);
+    const editBuilder = activeEditor.edit(editBuilder => {
+        editBuilder.insert(newPosition, text);
+    });
+}
+exports.insert_text_in = insert_text_in;
 function handle_insertion_text(item) {
     const searchTerm = item.label.trim();
     const prefix_past_item = item.insertText.trim();
@@ -601,7 +639,10 @@ function handle_insertion_text(item) {
                         return;
                     }
                     if (type === "WidgetMetaclass" || is_parent_line(prefix_past_item)) {
-                        insert_text("\n" + get_tabs_string(tabsCount + get_default_tabs_number()));
+                        const previous_tabs = get_previous_line_tab_number();
+                        const default_tabs = get_default_tabs_number();
+                        const newPos = new vscode.Position(current_Prosition().line + 1, 0);
+                        insert_text("\n" + get_tabs_string(default_tabs + previous_tabs));
                     }
                     if (types.strings.includes(type) || types.lists.includes(type) ||
                         func || types.dicts_and_set.includes(type) || types.parenths.includes(type)) {
@@ -821,7 +862,6 @@ function get_default_tabs_number() {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const tabs_num = get_tabs_number(line);
-            console.log("default tabs num", tabs_num, line);
             if (tabs_num === 0) {
                 continue;
             }
@@ -831,7 +871,13 @@ function get_default_tabs_number() {
             if (line.trim().startsWith("#")) {
                 continue;
             }
-            return tabs_num;
+            console.log("default tabs num", tabs_num, line);
+            if (i === lines.length - 1 && tabs_num === 0) {
+                return 4;
+            }
+            else {
+                return tabs_num;
+            }
         }
     }
     return -1;
@@ -898,6 +944,29 @@ function get_previous_line_text() {
     return "";
 }
 exports.get_previous_line_text = get_previous_line_text;
+function get_next_line_text() {
+    let tabs = 0;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active text editor found.');
+        return "";
+    }
+    const lineNum = get_current_line_index();
+    const text = get_text();
+    const lines = text.split("\n");
+    for (let i = lineNum; i < lines.length; i++) {
+        const line_loop = lines[i];
+        if (line_loop.trim().length === 0) {
+            continue;
+        }
+        if (line_loop.trim().startsWith("#")) {
+            continue;
+        }
+        return line_loop;
+    }
+    return "";
+}
+exports.get_next_line_text = get_next_line_text;
 function get_text() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {

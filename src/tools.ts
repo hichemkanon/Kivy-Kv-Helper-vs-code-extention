@@ -36,3 +36,25 @@ export function is_pip_package_installed(package_name: string): boolean{
     return packagePath.includes("is installed.");
 }
 
+
+export function getPlatform(): string {
+    if (process.platform === "win32") {
+        return "windows";
+    } else if (process.platform === "linux") {
+        return "linux";
+    } else if (process.platform === "darwin") {
+        return "mac";
+    } else {
+        return "Unknown";
+    }
+}
+
+
+export async function sleep(seconds: number): Promise<void> {
+    return new Promise<void>((resolve) => {
+        setTimeout(() => {
+            resolve();
+        }, seconds * 1000); // Convert seconds to milliseconds
+    });
+}
+

@@ -72,15 +72,6 @@ export function activate(context: vscode.ExtensionContext) {
     init_textutils(context);
 
 
-    exports.activate = function () {
-        console.log(`I am active!`);
-        vscode.commands.registerCommand('type', (args) => {
-            console.log(`type with args`, args);
-            return vscode.commands.executeCommand('default:type', args);
-        });
-    };
-
-
 
     context.subscriptions.push(disposable);
     context.subscriptions.push(runKvCmd);
@@ -92,24 +83,27 @@ export function activate(context: vscode.ExtensionContext) {
 
 function run_kv() {
     const editor = vscode.window.activeTextEditor;
-    let script = path.join(path.dirname(__dirname), "tools/kvviewer.py");
+    let script = "'" + path.join(path.dirname(__dirname), "tools/kvviewer.py") + "'";
+
+    let cmd = "python3";
+
+    if (tools.getPlatform() === "windows") {
+        cmd = "python";
+    }
 
     if (kivymd_exist()) {
-        script = path.join(path.dirname(__dirname), "tools/kvmdviewer.py");
+        script = "'" + path.join(path.dirname(__dirname), "tools/kvmdviewer.py") + "'";
     }
 
     if (editor && editor.document.languageId === 'kv') {
         const filePath = "'" + editor.document.uri.fsPath + "'";
 
-        if (tools.is_pip_package_installed("watchdog")) {
-            tools.executeCmd("python " + script + " " + filePath);
-        } else {
-            tools.executeCmd("pip install watchdog");
-            tools.executeCmd("python " + script + " " + filePath);
-        }
+        tools.executeCmd(cmd + " " + script + " " + filePath);
 
     }
 }
+
+
 
 
 function set_up_suggestions(context: vscode.ExtensionContext) {

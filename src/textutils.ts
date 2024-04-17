@@ -4,6 +4,8 @@ import * as fs from "fs";
 import * as path from "path";
 import * as file from "./fileutils";
 import * as tools from "./tools";
+import * as settings from "./settings";
+
 
 
 let selected_text = "";
@@ -102,7 +104,32 @@ function getWebviewContent(colorPickerPath: string, panel: vscode.WebviewPanel):
 
 let previousText = "";
 export function handleTextDocumentChange(event: vscode.TextDocumentChangeEvent) {
-    
+    if (vscode.window.activeTextEditor && event.document === vscode.window.activeTextEditor.document) {
+       if (settings.auto_indent){
+        for (const change of event.contentChanges) {
+            if (change.text.includes('\n') && previousText.length < get_text().length) {
+                const previousLine = get_line_text();
+                let tabs_default = get_default_tabs_number();
+                if (tabs_default < 1){
+                    tabs_default = 4;
+                }
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    return;
+                }
+                const cursorPosition = editor.selection.active;
+                
+                if (is_parent_line(previousLine)){
+
+                    const newPos = new vscode.Position(cursorPosition.line+1, 0);
+                    insert_text_in(get_tabs_string(tabs_default), newPos);
+
+                }
+            }
+          }
+       }
+    }
+    previousText = get_text();
 }
 
 
@@ -149,15 +176,6 @@ function handleTextEditorSelectionChange(
         cursor_index = [startPosition.line * 1000 + startPosition.character, endPosition.line * 1000 + endPosition.character];
     }
 
-    const line = get_line_text();
-   
-    if (line.trim().length > 0){
-        const indent = get_tabs_number(line);
-        const default_ind = get_default_tabs_number();
-        const previous_ind = get_previous_line_tab_number();
-        const previous_line_str = get_previous_line_text();
-
-    }
 
 }
 
@@ -698,6 +716,28 @@ export function insert_text(text: string) {
     });
 }
 
+export function current_Prosition(){
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        vscode.window.showErrorMessage('No active editor found.');
+        return new vscode.Position(0, 0);
+    }
+    return activeEditor.selection.active;
+}
+
+export function insert_text_in(text: string, newPosition: vscode.Position) {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+        vscode.window.showErrorMessage('No active editor found.');
+        return;
+    }
+
+    const edit = vscode.TextEdit.insert(newPosition, text);
+
+    const editBuilder = activeEditor.edit(editBuilder => {
+        editBuilder.insert(newPosition, text);
+    });
+}
 
 export function handle_insertion_text(item: vscode.CompletionItem) {
 
@@ -721,7 +761,6 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
                 if (name === searchTerm.trim()) {
 
                     if (inside_brackets()) {
-
                         // return;
                     }
 
@@ -733,8 +772,14 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
                     }
 
                     if (type === "WidgetMetaclass" || is_parent_line(prefix_past_item)) {
-                        insert_text("\n" + get_tabs_string(tabsCount + get_default_tabs_number()));
+                        const previous_tabs = get_previous_line_tab_number();
+                        const default_tabs = get_default_tabs_number();
+
+                        const newPos = new vscode.Position(current_Prosition().line+1, 0);
+                        insert_text("\n"+get_tabs_string(default_tabs+previous_tabs));
                     }
+
+
 
                     if (types.strings.includes(type) || types.lists.includes(type) ||
                         func || types.dicts_and_set.includes(type) || types.parenths.includes(type)) {
@@ -992,12 +1037,17 @@ export function get_default_tabs_number(): number {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const tabs_num = get_tabs_number(line);
-            console.log("default tabs num", tabs_num, line);
 
             if (tabs_num === 0) { continue; }
             if (line.trim().length === 0) { continue; }
             if (line.trim().startsWith("#")) { continue; }
-            return tabs_num;
+
+            console.log("default tabs num", tabs_num, line);
+            if (i === lines.length -1 && tabs_num === 0){
+                return 4;
+            } else {
+                return tabs_num;
+            }
         }
     }
     return -1;
@@ -1049,6 +1099,27 @@ export function get_previous_line_text(): string {
     const lines = text.split("\n");
 
     for (let i = lineNum-1; i >= 0; i--) {
+        const line_loop = lines[i];
+        if (line_loop.trim().length === 0) {continue;}
+        if (line_loop.trim().startsWith("#")) {continue;}
+        return line_loop;
+    }
+
+    return "";
+}
+
+export function get_next_line_text(): string {
+    let tabs = 0;
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+        vscode.window.showErrorMessage('No active text editor found.');
+        return "";
+    }
+    const lineNum = get_current_line_index();
+    const text = get_text();
+    const lines = text.split("\n");
+
+    for (let i = lineNum; i < lines.length; i++) {
         const line_loop = lines[i];
         if (line_loop.trim().length === 0) {continue;}
         if (line_loop.trim().startsWith("#")) {continue;}
