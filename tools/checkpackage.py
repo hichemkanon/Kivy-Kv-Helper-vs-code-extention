@@ -1,8 +1,7 @@
-# get_package_path.py
-import importlib, sys
+import importlib, sys, subprocess
 
 
-def check_package_installed(package_name):
+def is_package_installed(package_name):
     try:
         importlib.import_module(package_name)
         return True  # Package is installed
@@ -12,10 +11,9 @@ def check_package_installed(package_name):
         print(f"Error checking package {package_name}: {e}")
         return False  # Handle other exceptions
 
+def install_package(package_name):
+    process = subprocess.Popen(['pip', 'install', package_name], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process.wait()
 
 if __name__ == "__main__":
-    package_name = sys.argv[1] if len(sys.argv) > 1 else None
-    if check_package_installed(package_name):
-        print(f"{package_name} is installed.")
-    else:
-        print(f"{package_name} is not installed.")
+    print(is_package_installed("kivymd"))

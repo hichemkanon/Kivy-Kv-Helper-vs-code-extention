@@ -1,27 +1,17 @@
-#!/usr/bin/env python
-'''
-KViewer
-=======
 
-KViewer, for KV-Viewer, is a simple tool allowing you to dynamically display
-a KV file, taking its changes into account (thanks to watchdog). The
-idea is to facilitate design using the KV language. It's somewhat related to
-the KivyCatalog demo, except it uses an on-disc file, allowing the user to use
-any editor.
+from checkpackage import is_package_installed, install_package
 
-You can use the script as follows::
 
-    python kviewer.py ./test.kv
+if not is_package_installed("kivymd"):
+        print("kivy not found, starts installing...")
+        install_package("kivymd")\
+            
+if not is_package_installed("watchdog"):
+        print("watchdogs not found, starts installing...")
+        install_package("watchdog")
+        
+        
 
-This will display the test.kv and automatically update the display when the
-file changes.
-
-.. note: This scripts uses watchdog to listen for file changes. To install
-   watchdog::
-
-   pip install watchdog
-
-'''
 from sys import argv
 from kivy.lang import Builder
 from kivymd.app import MDApp
@@ -33,6 +23,7 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from os.path import dirname, basename, join
 from kivy.metrics import dp
+
 
 if len(argv) != 2:
     print('usage: %s filename.kv' % argv[0])
