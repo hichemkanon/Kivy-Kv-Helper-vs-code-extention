@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import { get_selected_text, init_textutils, get_cursor_index, get_cursor_start_end_offsets } from './textutils';
-import { searchKvKeywords, isInsideComment, isInsideStringKv } from './textutils';
-import { move_cursor_back, handle_insertion_text, get_hover_for, get_suggestions, handleTextDocumentChange } from './textutils';
+import * as textutils from './textutils';
+import * as ed from './editor';
 import { kivymd_exist, get_all_sugestions} from './textutils';
 import * as w from "./windowutil";
 import * as tools from "./tools";
@@ -15,12 +14,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 
     const disposable = vscode.commands.registerTextEditorCommand('extension.handleCompletionInsertion', (textEditor, edit, completionItem) => {
-        handle_insertion_text(completionItem);
+        textutils.handle_insertion_text(completionItem);
     });
 
 
     vscode.workspace.onDidChangeTextDocument((event) => {
-        handleTextDocumentChange(event);
+        textutils.handleTextDocumentChange(event);
         if (!defaultProvider) {
             set_up_suggestions(context);
         }
@@ -32,7 +31,7 @@ export function activate(context: vscode.ExtensionContext) {
             provideHover(document, position, token) {
                 // Logic to provide hover information
                 const hoveredWord = document.getText(document.getWordRangeAtPosition(position));
-                const hover = get_hover_for(hoveredWord);
+                const hover = textutils.get_hover_for(hoveredWord);
                 if (hover.trim() === "") {
                     return null;
                 }
@@ -69,7 +68,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 
 
-    init_textutils(context);
+    textutils.init_textutils(context);
 
 
 
@@ -156,7 +155,7 @@ function show_up_cust_suggestions(context: vscode.ExtensionContext) {
         defaultProvider = undefined;
     }
 
-    const sugs = get_suggestions();
+    const sugs = textutils.get_suggestions();
 
 
     // Register a new completion provider with the updated custom completion items
@@ -165,7 +164,7 @@ function show_up_cust_suggestions(context: vscode.ExtensionContext) {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
             const fileExtension = document.fileName.split(".").pop()?.toLowerCase();
             if (fileExtension === "kv") {
-                const suggestions = get_suggestions();
+                const suggestions = textutils.get_suggestions();
                 return suggestions;
             }
         },

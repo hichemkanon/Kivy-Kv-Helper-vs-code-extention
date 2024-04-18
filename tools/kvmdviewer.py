@@ -3,16 +3,15 @@ from checkpackage import is_package_installed, install_package
 
 
 if not is_package_installed("kivymd"):
-        print("kivy not found, starts installing...")
+        print("kivymd not found, starts installing...")
         install_package("kivymd")
-        
         if is_package_installed("kivymd"):
             print("kivymd installed with success !")
         else:
             print("failed installing kivy !!")
             
 if not is_package_installed("watchdog"):
-        print("watchdogs not found, starts installing...")
+        print("watchdog not found, starts installing...")
         install_package("watchdog")
         if is_package_installed("watchdog"):
             print("watchdog installed with success !")

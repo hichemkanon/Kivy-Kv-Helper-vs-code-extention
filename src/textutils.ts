@@ -5,7 +5,7 @@ import * as path from "path";
 import * as file from "./fileutils";
 import * as tools from "./tools";
 import * as settings from "./settings";
-
+import * as ed from "./editor";
 
 
 let selected_text = "";
@@ -13,8 +13,7 @@ let cursor_index = [-1, -1];
 let cursor_pos_in_line = [-1, -1];
 
 let kv_vars: vscode.CompletionItem[] = [];
-let py_classes: vscode.CompletionItem[] = [];
-let kv_classes: vscode.CompletionItem[] = [];
+
 
 
 
@@ -65,48 +64,6 @@ export function init_textutils(context: vscode.ExtensionContext) {
 
 }
 
-function getWebviewContent(colorPickerPath: string, panel: vscode.WebviewPanel): string {
-    return `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Color Picker</title>
-            <style>
-                body { font-family: Arial, sans-serif; }
-                #colorPicker { width: 300px; margin: 20px; }
-                #closeBtn { float: right; }
-            </style>
-        </head>
-        <body>
-            <div id="colorPicker">
-                <input type="color" id="colorInput">
-                <button id="applyBtn">Apply</button>
-                <button id="closeBtn">Close</button>
-            </div>
-            <script>
-                const vscode = acquireVsCodeApi();
-
-                const colorInput = document.getElementById('colorInput');
-                const applyBtn = document.getElementById('applyBtn');
-                const closeBtn = document.getElementById('closeBtn');
-
-                applyBtn.addEventListener('click', () => {
-                    const selectedColor = colorInput.value;
-                    vscode.postMessage({ command: 'colorSelected', color: selectedColor });
-                });
-
-                closeBtn.addEventListener('click', () => {
-                    vscode.postMessage({ command: 'closePanel' });
-                });
-            </script>
-        </body>
-        </html>
-    `;
-}
-
-
 
 let previousText = "";
 export function handleTextDocumentChange(event: vscode.TextDocumentChangeEvent) {
@@ -128,7 +85,7 @@ export function handleTextDocumentChange(event: vscode.TextDocumentChangeEvent) 
                     if (is_parent_line(previousLine)) {
 
                         const newPos = new vscode.Position(cursorPosition.line + 1, 0);
-                        insert_text_in(get_tabs_string(tabs_default), newPos);
+                        ed.insert_text_in(get_tabs_string(tabs_default), newPos);
 
                     }
                 }
@@ -191,60 +148,6 @@ export function get_selected_text(): string {
     return selected_text;
 }
 
-export function get_cursor_index(): number {
-    const editor = vscode.window.activeTextEditor;
-    if (editor) {
-        const position = editor.selection.active;
-        const document = editor.document;
-        const offset = document.offsetAt(position);
-        return offset;
-    }
-    return -1;
-}
-
-export function get_cursor_start_end_offsets(): Array<number> {
-    return cursor_index;
-}
-
-function getWordBeforeCursor(): string {
-    const editor = vscode.window.activeTextEditor;
-    if (editor) {
-        const position = editor.selection.active;
-        const wordRange = editor.document.getWordRangeAtPosition(position);
-        if (wordRange) {
-            return editor.document.getText(wordRange);
-        }
-    }
-    return "/><5%";
-}
-
-function getTextBeforeFirstQuote(): string {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
-        return '';
-    }
-
-    const position = editor.selection.active;
-    const line = editor.document.lineAt(position.line);
-    const lineText = line.text;
-
-    let textBeforeQuote = '';
-    for (let i = position.character - 1; i >= 0; i--) {
-        const char = lineText.charAt(i);
-        if (char === '"' || char === "'") {
-            if (i - 1 >= 0) {
-                if (lineText.charAt(i - 1) === "\\") {
-                    continue;
-                }
-            }
-            textBeforeQuote = lineText.substring(i + 1, position.character);
-            break;
-        }
-    }
-
-    return textBeforeQuote;
-}
 
 export function searchKvKeywords(): vscode.CompletionItem[] {
     const searchResult: vscode.CompletionItem[] = [];
@@ -290,6 +193,8 @@ export function searchKvKeywords(): vscode.CompletionItem[] {
 
                 if (inside_brackets() || isInsideComment()) {
                     completion_item.insertText = name;
+                } else if (line.trim().startsWith("<")) {
+                    completion_item.insertText = name + ">:";
                 } else {
                     completion_item.insertText = handle_prefix(item);
                 }
@@ -324,7 +229,7 @@ export function searchKvKeywords(): vscode.CompletionItem[] {
 }
 
 export function get_all_sugestions() {
-    return [...searchKvKeywords(), ...py_classes, ...kv_classes, ...kv_vars];
+    return [...searchKvKeywords(), ...kv_vars];
 }
 
 function handle_prefix(item: any) {
@@ -593,7 +498,6 @@ export function inside_brackets(): boolean {
 
 function is_inside(open: string, close: string) {
 
-
     let find_open = false;
     let find_close = false;
 
@@ -631,137 +535,51 @@ export function isInsideComment(): boolean {
 }
 
 
-
-
-
-export function move_cursor_back(how_many: number): void {
-
-    const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor) {
-        vscode.window.showErrorMessage('No active editor found.');
-        return;
-    }
-    const currentPosition = activeEditor.selection.active;
-    const newPosition = currentPosition.with(currentPosition.line, currentPosition.character - how_many);
-
-    const selection = new vscode.Selection(newPosition, newPosition);
-    activeEditor.selection = selection;
-
-    activeEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
-}
-
-export function move_cursor_forward(how_many: number): void {
-
-    const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor) {
-        vscode.window.showErrorMessage('No active editor found.');
-        return;
-    }
-    const currentPosition = activeEditor.selection.active;
-    const newPosition = currentPosition.with(currentPosition.line, currentPosition.character + how_many);
-
-    const selection = new vscode.Selection(newPosition, newPosition);
-    activeEditor.selection = selection;
-
-    activeEditor.revealRange(selection, vscode.TextEditorRevealType.InCenter);
-}
-
-
-
 function init_lists() {
 
-
-    kv_classes = [];
-    py_classes = [];
     kv_vars = [];
 
 
     for (let line of get_text().split("\n")) {
 
-        const matches_kv_vars = line.match(/#\:\s*set\s*(\w+)/g);
-        const matches_kv_classes = line.match(/(?<=\<)(\s*)?\w+(?=@)/g);
-        const matches_py_classes = line.match(/(?<=\<)(\s*)?\w+(?=\>)/g);
-
-        if (matches_kv_vars) {
-            const citem: vscode.CompletionItem = new vscode.CompletionItem(matches_kv_vars[1]);
-            citem.detail = "Variable";
-            citem.insertText = matches_kv_vars[1];
+        if (line.trim().startsWith("#") && line.includes(":") && line.includes("set")) {
+            const words = line.split(" ");
+            for (let i = 0; i < words.length; i++) {
+                const word = words[i];
+                if (word.trim().endsWith("set")) {
+                    const completion = words[i+1];
+                    let citem: vscode.CompletionItem = new vscode.CompletionItem(completion);
+                    citem.detail = "Variable";
+                    citem.insertText = completion;
+                    kv_vars.push(citem);
+                }
+            }
+        }
+        if (line.trim().startsWith("<") && line.includes(">") && line.trim().endsWith(":") && !line.trim().includes("@")) {
+            const kvVar = line.slice(line.indexOf("<")+1, line.indexOf(">"));
+            let citem: vscode.CompletionItem = new vscode.CompletionItem(kvVar);
+            citem.detail = "Py Class";
+            citem.insertText = kvVar + ":\n";
             kv_vars.push(citem);
         }
-        if (matches_py_classes) {
-            const citem: vscode.CompletionItem = new vscode.CompletionItem(matches_py_classes[0] + ":\n");
-            citem.detail = "Py Class";
-            citem.insertText = matches_py_classes[0] + ":\n";
-            py_classes.push(citem);
+        if (line.trim().startsWith("<") && line.includes(">") && line.trim().endsWith(":") && line.trim().includes("@")) {
+            const kvVar = line.slice(line.indexOf("<")+1, line.indexOf("@"));
+            const parent = line.slice(line.indexOf("@")+1, line.indexOf(">"));
+            let citem: vscode.CompletionItem = new vscode.CompletionItem(kvVar);
+            citem.detail = "Kv "+parent;
+            citem.insertText = kvVar + ":\n";
+            kv_vars.push(citem);
         }
-        if (matches_kv_classes) {
-            const citem: vscode.CompletionItem = new vscode.CompletionItem(matches_kv_classes[0] + ":\n");
-            citem.detail = "Kv Class";
-            citem.insertText = matches_kv_classes[0] + ":\n";
-            kv_classes.push(citem);
-        }
-
+        
     }
-
 }
 
-
-export async function move_cursor_next_line(how_much_lines: number) {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) { return; }
-
-    const currentPosition = editor.selection.active;
-    const lineNumber = currentPosition.line + how_much_lines;
-
-    await vscode.commands.executeCommand('editor.action.insertLineAfter');
-
-}
-
-export function insert_text(text: string) {
-    const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor) {
-        vscode.window.showErrorMessage('No active editor found.');
-        return;
-    }
-
-    const currentPosition = activeEditor.selection.active;
-    const currentLineIndex = currentPosition.line;
-    const newPosition = currentPosition.with(currentLineIndex, currentPosition.character);
-
-    const edit = vscode.TextEdit.insert(newPosition, text);
-
-    const editBuilder = activeEditor.edit(editBuilder => {
-        editBuilder.insert(newPosition, text);
-    });
-}
-
-export function current_Prosition() {
-    const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor) {
-        vscode.window.showErrorMessage('No active editor found.');
-        return new vscode.Position(0, 0);
-    }
-    return activeEditor.selection.active;
-}
-
-export function insert_text_in(text: string, newPosition: vscode.Position) {
-    const activeEditor = vscode.window.activeTextEditor;
-    if (!activeEditor) {
-        vscode.window.showErrorMessage('No active editor found.');
-        return;
-    }
-
-    const edit = vscode.TextEdit.insert(newPosition, text);
-
-    const editBuilder = activeEditor.edit(editBuilder => {
-        editBuilder.insert(newPosition, text);
-    });
-}
 
 
 export function handle_insertion_text(item: vscode.CompletionItem) {
 
     const searchTerm = (item.label as string).trim();
+    const line = get_line_text();
 
     try {
         const data = fs.readFileSync(filePath, "utf8");
@@ -790,12 +608,18 @@ export function handle_insertion_text(item: vscode.CompletionItem) {
                     }
 
                     if (type === "WidgetMetaclass" || types.special_class.includes(name)) {
-                        move_cursor_next_line(1);
+                        if (item.insertText?.toString().endsWith(":")){
+                            ed.move_cursor_next_line(1);
+                        } else if (line.trim().endsWith(">")){
+                            ed.move_cursor_forward(1);
+                            ed.insert_text(":");
+                            ed.move_cursor_next_line(1);
+                        }
                     }
 
                     if (prefix.trim().endsWith(")") || prefix.trim().endsWith("\"") || prefix.trim().endsWith("'") ||
                         prefix.trim().endsWith("}") || prefix.trim().endsWith("]")) {
-                        move_cursor_back(1);
+                        ed.move_cursor_back(1);
                     }
 
                 }
@@ -816,45 +640,45 @@ function get_tabs_string(num: number) {
     return tabs;
 }
 
-export function get_word_before_parenths_py(): string {
+
+function getWordBeforeCursor(): string {
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        const position = editor.selection.active;
+        const wordRange = editor.document.getWordRangeAtPosition(position);
+        if (wordRange) {
+            return editor.document.getText(wordRange);
+        }
+    }
+    return "/><5%";
+}
+
+function getTextBeforeFirstQuote(): string {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
         vscode.window.showErrorMessage('No active text editor found.');
-        return "";
+        return '';
     }
 
-    const document = editor.document;
-    const text = document.getText();
-    const currentPosition = getCursorIndex();
+    const position = editor.selection.active;
+    const line = editor.document.lineAt(position.line);
+    const lineText = line.text;
 
-
-    if (!inside_brackets()) {
-        return "";
-    }
-
-    let word = "";
-    let start_collect = false;
-
-
-    for (let i = currentPosition; i >= 0; i--) {
-        const char = text.charAt(i);
-        if (char === " ") {
-            continue;
-        };
-
-        if (char.match("[^\\w\\s]") && start_collect) {
+    let textBeforeQuote = '';
+    for (let i = position.character - 1; i >= 0; i--) {
+        const char = lineText.charAt(i);
+        if (char === '"' || char === "'") {
+            if (i - 1 >= 0) {
+                if (lineText.charAt(i - 1) === "\\") {
+                    continue;
+                }
+            }
+            textBeforeQuote = lineText.substring(i + 1, position.character);
             break;
-        };
-
-        if (start_collect) {
-            word = char + word;
         }
-        if (char === "(") {
-            start_collect = true;
-        };
     }
 
-    return word.trim();
+    return textBeforeQuote;
 }
 
 
@@ -1040,8 +864,7 @@ export function get_parent_of_child(): string {
     return "";
 }
 
-export function get_default_tabs_number(): number {
-    const text = get_text().trim();
+export function get_default_tabs_number(text: string): number {
     const lines = text.split("\n");
     let tabs_numer = 0;
     if (lines.length > 0) {
