@@ -73,7 +73,7 @@ function handleTextDocumentChange(event) {
             for (const change of event.contentChanges) {
                 if (change.text.includes('\n') && previousText.length < get_text().length) {
                     const previousLine = get_line_text();
-                    let tabs_default = get_default_tabs_number();
+                    let tabs_default = get_default_tabs_number(get_text());
                     if (tabs_default < 1) {
                         tabs_default = 4;
                     }
@@ -691,7 +691,7 @@ function get_parent_of_child() {
     if (current_tabs === 0) {
         return "";
     }
-    const tabs_number = get_default_tabs_number();
+    const tabs_number = get_default_tabs_number(get_text());
     if (tabs_number <= 0) {
         console.error("tabs number not determined !");
         return "";

@@ -34,7 +34,7 @@ class KvNode {
     line_number;
     index_in_text;
     constructor(text, type) {
-        this.text = text;
+        this.text = text.replace(":", "").trim();
         this.type = type;
         this.attributes = [];
         this.children = [];
@@ -59,46 +59,80 @@ class Parser {
         let column_counter = 0;
         let mainFound = false;
         const default_tabs = get_default_tabs_number(this.kvContent);
+        let current_node = null;
         if (default_tabs < 0) {
             return;
         }
+        const main_node = this.get_main();
+        if (main_node) {
+            this.nodes.push(main_node);
+            mainFound = true;
+        }
         for (let i = 0; i < lines.length; i++) {
+            if (mainFound && i === main_node?.line_number) {
+                continue;
+            }
             const line_loop = lines[i];
-            if (line_loop.trim().startsWith("#")) {
-                let node = new KvNode(line_loop, NODE_TYPE.COMMENT);
-                node.line_number = i;
-                node.index_column = get_tabs_number(line_loop);
-                node.index_in_text = column_counter + get_tabs_number(line_loop);
-                this.nodes.push(node);
-            }
+            const tabs = get_tabs_number(line_loop);
             if (line_loop.trim().endsWith(":")) {
-                let node = new KvNode(line_loop.replace(":", ""), NODE_TYPE.PARENT);
-                node.line_number = i;
-                node.index_column = get_tabs_number(line_loop);
-                node.index_in_text = column_counter + get_tabs_number(line_loop);
-                this.nodes.push(node);
-            }
-            if (line_loop.includes(":") && !line_loop.endsWith(":")) {
-                const child_tabs = get_tabs_number(line_loop);
-                const parent_tabs = child_tabs - default_tabs;
-                const split = line_loop.split(":");
-                let attr = new Attribute(line_loop, NODE_TYPE.CHILD);
-                attr.line_number = i;
-                attr.index_column = get_tabs_number(line_loop);
-                attr.index_in_text = column_counter + get_tabs_number(line_loop);
-                this.nodes[this.nodes.length - 1].attributes.push(attr);
+                if (tabs === 0) {
+                    let node = new KvNode(line_loop, NODE_TYPE.PARENT);
+                    node.line_number = i;
+                    node.index_column = get_tabs_number(line_loop);
+                    node.index_in_text = column_counter + get_tabs_number(line_loop);
+                    this.nodes.push(node);
+                }
+                else {
+                }
             }
             column_counter += line_loop.length + 1;
         }
     }
-    add_attribute(attribute, parent_tabs) {
-        for (let i = this.nodes.length - 1; i >= 0; i--) {
-            let node = this.nodes[i];
-            if (node.index_column === parent_tabs && node.type === NODE_TYPE.PARENT) {
-                node.attributes.push(attribute);
-                return;
+    loopIt(node, counter) {
+        if (node.children.length === 0) {
+            return node;
+        }
+        else {
+            let node2 = node.children[node.children.length - 1];
+            if (node2.children.length === 0) {
+                return node2;
+            }
+            else {
             }
         }
+    }
+    get_main() {
+        let found = false;
+        let node = null;
+        let i = 0;
+        let column_counter = 0;
+        for (let line_loop of this.kvContent.split("\n")) {
+            const tabs = get_tabs_number(line_loop);
+            if (line_loop.trim().includes(":") && !line_loop.trim().endsWith(":") && found && tabs > 0) {
+                console.log("break", "line", line_loop);
+                node = null;
+                break;
+            }
+            if (line_loop.trim().endsWith(":") && found) {
+                const matche = this.kvContent.match("\<" + node?.text + "\>" + "|" + "\<" + node?.text + "@");
+                if (matche) {
+                    return node;
+                }
+                else {
+                    return null;
+                }
+            }
+            if (line_loop.trim().endsWith(":") && tabs === 0) {
+                node = new KvNode(line_loop, NODE_TYPE.MAIN_VIEW);
+                node.line_number = i;
+                node.index_column = get_tabs_number(line_loop);
+                node.index_in_text = column_counter + get_tabs_number(line_loop);
+                found = true;
+            }
+            i++;
+            column_counter += line_loop.length + 1;
+        }
+        return node;
     }
 }
 exports.Parser = Parser;
@@ -125,22 +159,27 @@ function get_default_tabs_number(text) {
             if (line.trim().startsWith("#")) {
                 continue;
             }
-            console.log("default tabs num", tabs_num, line);
             return tabs_num;
         }
     }
     return -1;
 }
 const kvTemplate = `
+BoxLay:
 BoxLayout:
     orientation: "vertical"
     size_hint: (.5, .5)
+    BoxLayout:
+        orientation: "vertical"
+        size_hint: (.5, .5)
     Label:
         text: "Hello, World!"
     Button:
         text: "Click Me"
+<BoxLay@StackLayout>:
+    orientation: "lr-tb"
 `;
 const parser = new Parser(kvTemplate);
 parser.parse();
-console.log(parser.nodes);
+console.log("main", parser.nodes);
 //# sourceMappingURL=kvparser.js.map
