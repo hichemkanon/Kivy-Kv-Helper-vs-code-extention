@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as textutils from './textutils';
 import * as ed from './editor';
-import { kivymd_exist, get_all_sugestions} from './textutils';
+import { kivymd_exist, get_all_sugestions } from './textutils';
 import * as w from "./windowutil";
 import * as tools from "./tools";
 import path from 'path';
@@ -124,6 +124,11 @@ function set_up_suggestions(context: vscode.ExtensionContext) {
                     return suggestions;
                 }
 
+                if (fileExtension === "py") {
+                    const suggestions = textutils.get_py_suggestions();
+                    return suggestions;
+                }
+
                 return [];
             },
             resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken) {
@@ -152,21 +157,21 @@ function show_up_cust_suggestions(context: vscode.ExtensionContext) {
     }
     if (customProvider) {
         customProvider.dispose();
-        defaultProvider = undefined;
+        customProvider = undefined;
     }
 
-    const sugs = textutils.get_suggestions();
+    const fileExtension = vscode.window.activeTextEditor?.document.fileName.split(".").pop()?.toLowerCase();
+
+    const sugs = textutils.get_suggestions(fileExtension as string);
 
 
     // Register a new completion provider with the updated custom completion items
     customProvider = vscode.languages.registerCompletionItemProvider(
         { scheme: 'file' }, {
         provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
-            const fileExtension = document.fileName.split(".").pop()?.toLowerCase();
-            if (fileExtension === "kv") {
-                const suggestions = textutils.get_suggestions();
-                return suggestions;
-            }
+            const suggestions = textutils.get_suggestions(fileExtension as string);
+            return suggestions;
+
         },
         resolveCompletionItem(item: vscode.CompletionItem, token: vscode.CancellationToken) {
             item.command = {
@@ -176,7 +181,7 @@ function show_up_cust_suggestions(context: vscode.ExtensionContext) {
             };
             return item;
         }
-    }
+      }
     );
 
     // Trigger the suggestion panel

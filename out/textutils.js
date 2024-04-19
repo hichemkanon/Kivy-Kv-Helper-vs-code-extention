@@ -23,7 +23,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_current_line_tab_number = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.handle_insertion_text = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.get_all_sugestions = exports.searchKvKeywords = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
+exports.is_py_keyword = exports.kivymd_exist = exports.get_hover_for = exports.get_cursor_index_in_line = exports.get_current_line_index = exports.getCursorIndex = exports.get_line_text = exports.get_text = exports.get_next_line_text = exports.get_previous_line_text = exports.get_current_line_tab_number = exports.get_previous_line_tab_number = exports.get_tabs_number = exports.get_default_tabs_number = exports.get_parent_of_child = exports.get_attribue_value = exports.get_attribue_key = exports.get_attr = exports.get = exports.get_word_before_parenths_kv = exports.handle_insertion_text = exports.get_parent_parenthses = exports.isInsideComment = exports.inside_brackets = exports.isInsideStringKv = exports.isInsideStringPy = exports.searchStringsValue = exports.searchPaths = exports.get_suggestions = exports.is_parent_name = exports.is_parent_line = exports.get_py_suggestions = exports.get_suggestions_attributes_for = exports.get_all_sugestions = exports.searchPyKeywords = exports.searchKvKeywords = exports.get_selected_text = exports.handleTextDocumentChange = exports.init_textutils = void 0;
 const vscode = __importStar(require("vscode"));
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
@@ -35,9 +35,11 @@ let cursor_index = [-1, -1];
 let cursor_pos_in_line = [-1, -1];
 let kv_vars = [];
 const filePath = path.join(__dirname, '..', 'data', 'all_kivy.json');
+const templatesFilePath = path.join(__dirname, '..', 'data', 'templates.json');
 const fileImports = path.join(__dirname, '..', 'data', 'imports.txt');
 const fileValuesPath = path.join(__dirname, '..', 'data', 'in_strings.json');
 let fileExtension;
+let list_parenths = [];
 function init_textutils(context) {
     vscode.workspace.onDidOpenTextDocument((document) => {
         if (document.languageId === 'kv') {
@@ -68,7 +70,11 @@ function init_textutils(context) {
 exports.init_textutils = init_textutils;
 let previousText = "";
 function handleTextDocumentChange(event) {
+    init_lists();
     if (vscode.window.activeTextEditor && event.document === vscode.window.activeTextEditor.document) {
+        if (fileExtension && !(fileExtension === "kv")) {
+            return;
+        }
         if (settings.auto_indent) {
             for (const change of event.contentChanges) {
                 if (change.text.includes('\n') && previousText.length < get_text().length) {
@@ -91,7 +97,6 @@ function handleTextDocumentChange(event) {
         }
     }
     previousText = get_text();
-    init_lists();
 }
 exports.handleTextDocumentChange = handleTextDocumentChange;
 function handleTextEditorSelectionChange(event) {
@@ -130,9 +135,8 @@ function get_selected_text() {
     return selected_text;
 }
 exports.get_selected_text = get_selected_text;
-function searchKvKeywords() {
+function searchKvKeywords(searchTerm) {
     const searchResult = [];
-    const searchTerm = getWordBeforeCursor();
     const line = get_line_text();
     if (isInsideStringKv()) {
         const prefix = getTextBeforeFirstQuote();
@@ -158,7 +162,7 @@ function searchKvKeywords() {
                 const is_parent = is_parent_name(searchTerm);
                 let completion_item = new vscode.CompletionItem(name);
                 completion_item.detail = type;
-                if (inside_brackets() || isInsideComment()) {
+                if (inside_brackets() || isInsideComment() || line.trim().endsWith(":")) {
                     completion_item.insertText = name;
                 }
                 else if (line.trim().startsWith("<")) {
@@ -191,10 +195,119 @@ function searchKvKeywords() {
     return searchResult;
 }
 exports.searchKvKeywords = searchKvKeywords;
+function searchPyKeywords(searchTerm) {
+    const searchResult = [];
+    try {
+        const data = fs.readFileSync(filePath, "utf8");
+        const jsonData = JSON.parse(data);
+        for (const key in jsonData) {
+            if (jsonData.hasOwnProperty(key)) {
+                const item = jsonData[key];
+                const mtype = item["mtype"];
+                const name = item["name"];
+                let prefix = item["prefix_py"];
+                const imports = item["import"];
+                if (!(mtype === "class")) {
+                    continue;
+                }
+                let completion_item = new vscode.CompletionItem(name);
+                completion_item.detail = imports;
+                completion_item.sortText = "\0";
+                if (!inside_brackets()) {
+                    completion_item.insertText = prefix;
+                }
+                set_sorting_level(item, completion_item);
+                if (name.startsWith(searchTerm.trim())) {
+                    if (!searchResult.includes(completion_item)) {
+                        searchResult.push(completion_item);
+                    }
+                }
+            }
+        }
+    }
+    catch (err) {
+        console.error(err);
+    }
+    return searchResult;
+}
+exports.searchPyKeywords = searchPyKeywords;
 function get_all_sugestions() {
-    return [...searchKvKeywords(), ...kv_vars];
+    const searchTerm = getWordBeforeCursor();
+    return [...searchKvKeywords(searchTerm), ...kv_vars];
 }
 exports.get_all_sugestions = get_all_sugestions;
+function get_suggestions_attributes_for(searchTerm) {
+    const searchResult = [];
+    try {
+        const data = fs.readFileSync(filePath, "utf8");
+        const jsonData = JSON.parse(data);
+        for (const key in jsonData) {
+            if (jsonData.hasOwnProperty(key)) {
+                const item = jsonData[key];
+                const type = item["type"];
+                const name = item["name"];
+                let prefix = item["prefix_kv"];
+                const parents_list = item["parent"];
+                if (parents_list.includes(searchTerm.trim())) {
+                    let completion_item = new vscode.CompletionItem(name);
+                    completion_item.detail = type;
+                    completion_item.insertText = name + "=";
+                    completion_item.sortText = "a";
+                    completion_item.kind = vscode.CompletionItemKind.Keyword;
+                    set_sorting_level(item, completion_item);
+                    if (!searchResult.includes(completion_item)) {
+                        searchResult.push(completion_item);
+                    }
+                }
+            }
+        }
+    }
+    catch (err) {
+        console.error(err);
+    }
+    return searchResult;
+}
+exports.get_suggestions_attributes_for = get_suggestions_attributes_for;
+function get_py_suggestions() {
+    let searchResult = [];
+    const searchTerm = getWordBeforeCursor();
+    const line = get_line_text();
+    if (!(line.trim().startsWith("kv"))) {
+        const target = get_parent_parenthses();
+        if (target && target.length > 0) {
+            searchResult = get_suggestions_attributes_for(target.trim());
+        }
+        if (searchResult.length === 0) {
+            searchResult = searchPyKeywords(searchTerm);
+        }
+        return searchResult;
+    }
+    try {
+        const data = fs.readFileSync(filePath, "utf8");
+        const jsonData = JSON.parse(data);
+        for (const key in jsonData) {
+            if (jsonData.hasOwnProperty(key)) {
+                const item = jsonData[key];
+                const name = item["name"];
+                if (!item["import"]) {
+                    continue;
+                }
+                const imports = item["import"];
+                let completion_item = new vscode.CompletionItem(name);
+                completion_item.detail = handle_import_detail(imports);
+                completion_item.insertText = imports;
+                if (!searchResult.includes(completion_item)) {
+                    searchResult.push(completion_item);
+                }
+            }
+        }
+    }
+    catch (err) {
+        console.error(err);
+    }
+    return searchResult;
+}
+exports.get_py_suggestions = get_py_suggestions;
 function handle_prefix(item) {
     const type = item["type"];
     const mtype = item["mtype"];
@@ -213,6 +326,13 @@ function handle_prefix(item) {
         }
     }
     return prr;
+}
+function handle_import_detail(item) {
+    let imp = "";
+    if (item.trim().startsWith("from") && item.includes("import")) {
+        imp = item.slice(item.indexOf("from"), item.indexOf("import"));
+    }
+    return imp;
 }
 function get_imports_for(searchTerm) {
     const searchResult = [];
@@ -300,9 +420,30 @@ function get_search_results_for(searchTerm, jsonData) {
     }
     return searchResult;
 }
-function get_suggestions() {
-    const searchResult = [];
+function get_suggestions(extention) {
+    let searchResult = [];
     const parent_name = get_parent_of_child();
+    if (extention === "py") {
+        const target = get_parent_parenthses();
+        if (target) {
+            searchResult = get_suggestions_attributes_for(target);
+        }
+        if (searchResult.length === 0) {
+            const data = fs.readFileSync(templatesFilePath, "utf8");
+            const jsonData = JSON.parse(data);
+            const menu = ["kivy_with_class", "kivy_simple", "kivy_with_screens", "kivymd_simple"];
+            for (let m of menu) {
+                if (jsonData.hasOwnProperty(m)) {
+                    let completion = new vscode.CompletionItem(m.replace("_", " "));
+                    completion.insertText = jsonData[m];
+                    completion.sortText = "\0";
+                    completion.detail = "Template";
+                    searchResult.push(completion);
+                }
+            }
+        }
+        return searchResult;
+    }
     try {
         const data = fs.readFileSync(filePath, "utf8");
         const jsonData = JSON.parse(data);
@@ -358,7 +499,9 @@ function searchPaths(searchTerm) {
         }
         const listFile = file.listFilesInPath(path.dirname(searchTerm));
         for (const filePath of listFile) {
-            searchResult.push(new vscode.CompletionItem(path.basename(filePath)));
+            let complete = new vscode.CompletionItem(path.basename(filePath));
+            complete.detail = "Path";
+            searchResult.push(complete);
         }
     }
     catch (err) {
@@ -373,7 +516,9 @@ function searchStringsValue(searchTerm) {
         const data = fs.readFileSync(fileValuesPath, "utf8");
         const jsonData = JSON.parse(data);
         for (const item of jsonData) {
-            searchResult.push(new vscode.CompletionItem(item));
+            let complete = new vscode.CompletionItem(item);
+            complete.detail = "String";
+            searchResult.push(complete);
         }
     }
     catch (err) {
@@ -389,7 +534,6 @@ exports.isInsideStringPy = isInsideStringPy;
 function isInsideStringKv() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return false;
     }
     const document = editor.document;
@@ -450,6 +594,7 @@ function isInsideComment() {
 exports.isInsideComment = isInsideComment;
 function init_lists() {
     kv_vars = [];
+    list_parenths = [];
     for (let line of get_text().split("\n")) {
         if (line.trim().startsWith("#") && line.includes(":") && line.includes("set")) {
             const words = line.split(" ");
@@ -480,50 +625,148 @@ function init_lists() {
             kv_vars.push(citem);
         }
     }
+    if (fileExtension === "py") {
+        try {
+            for (let i = 0; i < get_text().length; i++) {
+                let char = get_text().charAt(i);
+                if (char === "(") {
+                    const close = ed.find_closing_parenthesis(i);
+                    let par = new ParentheseIndexes(i, close);
+                    list_parenths.push(par);
+                }
+            }
+        }
+        catch (error) {
+        }
+    }
 }
+function get_parent_parenthses() {
+    const indedx = ed.get_cursor_index();
+    const text = get_text();
+    let name = "";
+    for (let i = indedx; i < text.length; i++) {
+        const char = text.charAt(i);
+        if (char === ":") {
+            break;
+        }
+        if (char === " " || char === "\n" || char === "\r") {
+            continue;
+        }
+        if (char.match("\\w")) {
+            if (is_py_keyword(ed.get_word_towards_from(i))) {
+                break;
+            }
+        }
+        if (char === ')') {
+            const open = ed.find_open_parenthesis(i);
+            let find_words = false;
+            if (open > 0) {
+                for (let i2 = open; i2 >= 0; i2--) {
+                    const char = text.charAt(i2);
+                    if (char.match("\\W") && i2 !== open) {
+                        if (!(char === '"' || char === "'" || char === "\n" || char === "\r")) {
+                            break;
+                        }
+                    }
+                    if (char === " ") {
+                        continue;
+                    }
+                    if (char.match("\\w")) {
+                        find_words = true;
+                    }
+                    if (find_words) {
+                        name = char + name;
+                    }
+                }
+                break;
+            }
+        }
+        else {
+            break;
+        }
+    }
+    return name;
+}
+exports.get_parent_parenthses = get_parent_parenthses;
 function handle_insertion_text(item) {
     const searchTerm = item.label.trim();
     const line = get_line_text();
-    try {
-        const data = fs.readFileSync(filePath, "utf8");
-        const jsonData = JSON.parse(data);
-        for (const key in jsonData) {
-            if (jsonData.hasOwnProperty(key)) {
-                const js_item = jsonData[key];
-                const type = js_item["type"];
-                const mtype = js_item["mtype"];
-                let name = js_item["name"];
-                const prefix = js_item["prefix_kv"];
-                if (name === searchTerm.trim()) {
-                    if (inside_brackets()) {
-                        // return;
-                    }
-                    const func = types.parenths.includes(type) && fileExtension === "kv";
-                    if (fileExtension === "kv" && mtype === "function") {
-                        return;
-                    }
-                    if (type === "WidgetMetaclass" || types.special_class.includes(name)) {
-                        if (item.insertText?.toString().endsWith(":")) {
-                            ed.move_cursor_next_line(1);
+    fileExtension = vscode.window.activeTextEditor?.document.fileName.split(".").pop()?.toLowerCase();
+    if (fileExtension === "kv") {
+        try {
+            const data = fs.readFileSync(filePath, "utf8");
+            const jsonData = JSON.parse(data);
+            for (const key in jsonData) {
+                if (jsonData.hasOwnProperty(key)) {
+                    const js_item = jsonData[key];
+                    const type = js_item["type"];
+                    const mtype = js_item["mtype"];
+                    let name = js_item["name"];
+                    const prefix = js_item["prefix_kv"];
+                    if (name === searchTerm.trim()) {
+                        if (inside_brackets()) {
+                            // return;
                         }
-                        else if (line.trim().endsWith(">")) {
-                            ed.move_cursor_forward(1);
-                            ed.insert_text(":");
-                            ed.move_cursor_next_line(1);
+                        const func = types.parenths.includes(type) && fileExtension === "kv";
+                        if (fileExtension === "kv" && mtype === "function") {
+                            return;
                         }
-                    }
-                    if (prefix.trim().endsWith(")") || prefix.trim().endsWith("\"") || prefix.trim().endsWith("'") ||
-                        prefix.trim().endsWith("}") || prefix.trim().endsWith("]")) {
-                        ed.move_cursor_back(1);
+                        if (type === "WidgetMetaclass" || types.special_class.includes(name)) {
+                            if (item.insertText?.toString().endsWith(":") && !line.endsWith(":")) {
+                                ed.move_cursor_next_line(1);
+                            }
+                            else if (line.endsWith(":")) {
+                                ed.moveCursorToIndexOf(line.indexOf(":") + 1);
+                                ed.move_cursor_next_line(1);
+                            }
+                            else if (line.trim().endsWith(">")) {
+                                ed.move_cursor_forward(1);
+                                ed.insert_text(":");
+                                ed.move_cursor_next_line(1);
+                            }
+                        }
+                        if (prefix.trim().endsWith(")") || prefix.trim().endsWith("\"") || prefix.trim().endsWith("'") ||
+                            prefix.trim().endsWith("}") || prefix.trim().endsWith("]")) {
+                            ed.move_cursor_back(1);
+                        }
                     }
                 }
             }
         }
+        catch (err) {
+        }
     }
-    catch (err) {
+    else {
+        if (item.detail === "Template") {
+        }
+        else if (item.insertText?.toString().trim().startsWith("kv")) {
+            ed.replace_curent_line(item.insertText);
+        }
+        else {
+            if (!item.insertText?.toString().trim().endsWith("=")) {
+                if (inside_brackets()) {
+                }
+                else {
+                    ed.move_cursor_back(1);
+                }
+                add_import_if_not_exist(item);
+            }
+        }
     }
 }
 exports.handle_insertion_text = handle_insertion_text;
+function add_import_if_not_exist(item) {
+    const name = item.detail?.trim().match(/\w+$/);
+    if (name) {
+        for (const line of get_text().split("\n")) {
+            const match = line.trim().match("(import|from).*" + name + "$");
+            if (match) {
+                return;
+            }
+        }
+    }
+    ed.insert_text_in_pos(item.detail?.trim() + "\n", 0);
+}
 function get_tabs_string(num) {
     let tabs = "";
     for (let i = 0; i < num; i++) {
@@ -545,7 +788,6 @@ function getWordBeforeCursor() {
 function getTextBeforeFirstQuote() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return '';
     }
     const position = editor.selection.active;
@@ -569,7 +811,6 @@ function getTextBeforeFirstQuote() {
 function get_word_before_parenths_kv() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     const document = editor.document;
@@ -610,7 +851,6 @@ exports.get_word_before_parenths_kv = get_word_before_parenths_kv;
 function get(index, which) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     if (which > 2) {
@@ -638,7 +878,6 @@ exports.get = get;
 function get_attr(line, which) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     if (which > 2) {
@@ -663,7 +902,6 @@ exports.get_attr = get_attr;
 function get_attribue_key() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     return get(getCursorIndex(), 1);
@@ -672,7 +910,6 @@ exports.get_attribue_key = get_attribue_key;
 function get_attribue_value() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     return get(getCursorIndex(), 2);
@@ -681,7 +918,6 @@ exports.get_attribue_value = get_attribue_value;
 function get_parent_of_child() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     const document = editor.document;
@@ -761,7 +997,6 @@ function get_previous_line_tab_number() {
     let tabs = 0;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return -1;
     }
     const lineNum = get_current_line_index();
@@ -788,7 +1023,6 @@ function get_current_line_tab_number() {
     let tabs = 0;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return -1;
     }
     const lineText = get_line_text();
@@ -799,7 +1033,6 @@ function get_previous_line_text() {
     let tabs = 0;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     const lineNum = get_current_line_index();
@@ -822,7 +1055,6 @@ function get_next_line_text() {
     let tabs = 0;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     const lineNum = get_current_line_index();
@@ -844,7 +1076,6 @@ exports.get_next_line_text = get_next_line_text;
 function get_text() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     return editor.document.getText();
@@ -853,7 +1084,6 @@ exports.get_text = get_text;
 function get_line_text() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return "";
     }
     return editor.document.lineAt(get_current_line_index()).text;
@@ -862,7 +1092,6 @@ exports.get_line_text = get_line_text;
 function getCursorIndex() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return -1;
     }
     if (editor) {
@@ -880,7 +1109,6 @@ exports.getCursorIndex = getCursorIndex;
 function get_current_line_index() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return -1;
     }
     const document = editor.document;
@@ -892,7 +1120,6 @@ exports.get_current_line_index = get_current_line_index;
 function get_cursor_index_in_line() {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
-        vscode.window.showErrorMessage('No active text editor found.');
         return -1;
     }
     const document = editor.document;
@@ -952,4 +1179,17 @@ class types {
     static others = ["property", "member_descriptor", "ObjectProperty"];
     static not_use = ["_abc_data", "cython_function_or_method", "module", "builtin_function_or_method", "defaultdict", "object", "AliasProperty"];
 }
+class ParentheseIndexes {
+    left = -1;
+    right = -1;
+    constructor(left, right) {
+        this.left = left;
+        this.right = right;
+    }
+}
+function is_py_keyword(word) {
+    const py_keywords = ["def", "class", "for", "while", "if", "elif", "else", "try", "except", "finally", "with", "assert", "yield", "return", "break", "continue", "pass"];
+    return py_keywords.includes(word.trim());
+}
+exports.is_py_keyword = is_py_keyword;
 //# sourceMappingURL=textutils.js.map

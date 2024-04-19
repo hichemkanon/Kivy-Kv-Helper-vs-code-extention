@@ -15,7 +15,8 @@
 	"files": [
 		"data/in_strings.json",
 		"data/all_kivy.json",
-		"data/imports.txt"
+		"data/imports.txt",
+		"data/templates.json"
 	],
 	"categories": [
 		"Other"
@@ -54,7 +55,7 @@
 				"command": "extension.displaySuggestions",
 				"key": "ctrl+`",
 				"mac": "cmd+`",
-				"when": "resourceExtname == '.kv'"
+				"when": "resourceExtname == '.kv' || resourceExtname == '.py'"
 			}
 		],
 		"languages": [

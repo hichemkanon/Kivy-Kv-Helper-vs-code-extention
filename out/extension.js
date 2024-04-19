@@ -104,6 +104,10 @@ function set_up_suggestions(context) {
                 const suggestions = (0, textutils_1.get_all_sugestions)();
                 return suggestions;
             }
+            if (fileExtension === "py") {
+                const suggestions = textutils.get_py_suggestions();
+                return suggestions;
+            }
             return [];
         },
         resolveCompletionItem(item, token) {
@@ -126,17 +130,15 @@ function show_up_cust_suggestions(context) {
     }
     if (customProvider) {
         customProvider.dispose();
-        defaultProvider = undefined;
+        customProvider = undefined;
     }
-    const sugs = textutils.get_suggestions();
+    const fileExtension = vscode.window.activeTextEditor?.document.fileName.split(".").pop()?.toLowerCase();
+    const sugs = textutils.get_suggestions(fileExtension);
     // Register a new completion provider with the updated custom completion items
     customProvider = vscode.languages.registerCompletionItemProvider({ scheme: 'file' }, {
         provideCompletionItems(document, position) {
-            const fileExtension = document.fileName.split(".").pop()?.toLowerCase();
-            if (fileExtension === "kv") {
-                const suggestions = textutils.get_suggestions();
-                return suggestions;
-            }
+            const suggestions = textutils.get_suggestions(fileExtension);
+            return suggestions;
         },
         resolveCompletionItem(item, token) {
             item.command = {
