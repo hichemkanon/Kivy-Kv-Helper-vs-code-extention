@@ -8,7 +8,7 @@ The Kivy .kv Language Helper is a Visual Studio Code extension designed to enhan
 
 * new suggestions improvements.
 * in **.py** files write **kv** then any widget name and choose one to past the import line
-* in .py files click on **ctrl+`** to show and choose kivy templates
+* in .py files click on **ctrl+alt+n** to show and choose kivy templates
 * suggestions **attributes** inside Widgets in **.py** files.
 * **auto** add **import** for the created widgets or classes that is not added.
 
