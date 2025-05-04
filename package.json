@@ -53,8 +53,8 @@
 			},
 			{
 				"command": "extension.displaySuggestions",
-				"key": "ctrl+`",
-				"mac": "cmd+`",
+				"key": "ctrl+alt+n",
+				"mac": "ctrl+alt+n",
 				"when": "resourceExtname == '.kv' || resourceExtname == '.py'"
 			}
 		],
