@@ -1,5 +1,9 @@
 # Kivy .kv Language Helper
 
+## Support me !
+[![Buy me a coffee](https://files.catbox.moe/alegxx.png)](https://buymeacoffee.com/hichem_dev)
+
+
 ## Description
 
 The Kivy .kv Language Helper is a Visual Studio Code extension designed to enhance your development experience when working with Kivy's .kv language files. It provides intelligent suggestions, syntax highlighting, and more, making it easier to write and manage your Kivy UI layouts.
