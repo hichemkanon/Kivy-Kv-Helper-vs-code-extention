@@ -1,10 +1,9 @@
 # Kivy .kv Language Helper
 
 ## Support me !
-[![Buy me a coffee]()]()
 
 <a href="https://buymeacoffee.com/hichem_dev">
-  <img src="https://files.catbox.moe/alegxx.png" alt="My Site" height="100">
+  <img src="https://files.catbox.moe/alegxx.png" alt="Buy me a coffee" height="60">
 </a>
 
 
